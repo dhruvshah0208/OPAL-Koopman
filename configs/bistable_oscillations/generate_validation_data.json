@@ -1,0 +1,14 @@
+{
+  "data_subfolder": "bistable_oscillations",
+  "system_name": "bistable_oscillations",
+  "file_name": "bistable_oscillations_validation_data.npz",
+  "num_traj": 500,
+  "traj_length": 301,
+  "target_limit_cycle_data_path": [
+    "data/bistable_oscillations/bistable_oscillations_target_data1.npz",
+    "data/bistable_oscillations/bistable_oscillations_target_data2.npz"
+  ],
+  "seed": 41,
+  "verbose": false,
+  "show_worst": true
+}

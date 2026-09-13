@@ -1,0 +1,1 @@
+{"system_name": "duffing_eqn", "data_subfolder": "duffing", "file_name": "duffing_validation_data.npz", "num_traj": 800, "traj_length": 500, "target_equilibria": [[-1.0, 0.0], [1.0, 0.0]], "class_counts_per_trajectory": {"0": 396, "1": 404}, "max_best_final_distance": 0.01547083156548302, "seed": 42}

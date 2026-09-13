@@ -1,0 +1,14 @@
+{
+    "data_subfolder": "bistable",
+    "system_name": "bistable",
+    "file_name": "bistable_validation_data.npz",
+    "num_traj": 800,
+    "traj_length": 100,
+    "target_equilibria": [
+      [-1.0],
+      [1.0]
+    ],
+    "seed": 42,
+    "verbose": false
+  }
+  

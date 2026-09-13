@@ -1,0 +1,36 @@
+{
+    "explanation": {
+      "_note": "Documentation only; ignored by build_partition.py. Paths are relative to the project root unless absolute.",
+      "data_path": "Path to the .npz file produced by generate_data.py. Must contain X, Y, and centers_global.",
+      "output_path": "Where to write partition_output.npz with final labels, embeddings, and merge-graph metadata.",
+      "system_name": "Name passed to SystemsAutonomous for optional plotting bounds.",
+      "gamma": "Bandwidth parameter for Gaussian RBFs in the dictionary.",
+      "d_poly": "Polynomial degree in the dictionary; -1 means RBF-only.",
+      "epsilon": "Eigenvalue cutoff for approximate invariant modes (repo convention: keep modes with lambda < epsilon). The paper writes lambda <= epsilon^2 for the invariance ratio; here epsilon is the GEP eigenvalue threshold, consistent with build_classifier.py.",
+      "reg": "Tikhonov regularization added to the GEP Gram matrix N.",
+      "max_invariant_modes": "Maximum number of invariant modes to retain after epsilon filtering.",
+      "skip_first_mode": "If true, drop the smallest-eigenvalue mode (often near-constant).",
+      "scalar_cluster_count": "Number of KMeans clusters per scalar invariant coordinate (int or list of length r).",
+      "tau_occ": "Minimum empirical cell weight |C_alpha|/N to retain a fine cell.",
+      "tau_tr": "Transition merge threshold on max(p_ab, p_ba).",
+      "tau_val": "Value-space merge threshold on ||m_alpha - m_beta||_2 in embedding space.",
+      "random_state": "Random seed for per-coordinate KMeans clustering.",
+      "show_plots": "If true and state dimension is 2, show embedding, state-space, and transition diagnostics."
+    },
+    "data_path": "data/bistable/bistable_data.npz",
+    "output_path": "data/bistable/partition_output.npz",
+    "system_name": "bistable",
+    "gamma": 30.0,
+    "d_poly": 0,
+    "epsilon": 1e-4,
+    "reg": 1e-6,
+    "max_invariant_modes": 4,
+    "skip_first_mode": false,
+    "scalar_cluster_count": [4, 4, 4, 2],
+    "tau_occ": 0.002,
+    "tau_tr": 0.05,
+    "tau_val": 0.00,
+    "random_state": 42,
+    "show_plots": true
+  }
+  

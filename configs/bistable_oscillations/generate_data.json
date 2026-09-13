@@ -1,0 +1,14 @@
+{
+    "data_subfolder": "bistable_oscillations",
+    "system_name": "bistable_oscillations",
+    "file_name": "bistable_oscillations_data.npz",
+    "num_traj": 500,
+    "traj_length": 51,
+    "compute_k_means": true,
+    "n_global_centers": 500,
+    "random_center_seed": 42,
+    "seed": 42,
+    "verbose": false,
+    "show_phase_space": false
+  }
+  

@@ -1,0 +1,1 @@
+{"system_name": "bistable", "data_subfolder": "bistable", "file_name": "bistable_validation_data.npz", "num_traj": 800, "traj_length": 100, "target_equilibria": [[-1.0], [1.0]], "class_counts_per_trajectory": {"0": 405, "1": 395}, "max_best_final_distance": 6.661338147750939e-16, "seed": 42}

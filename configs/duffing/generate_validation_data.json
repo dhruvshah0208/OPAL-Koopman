@@ -1,0 +1,13 @@
+{
+  "data_subfolder": "duffing",
+  "system_name": "duffing_eqn",
+  "file_name": "duffing_validation_data.npz",
+  "num_traj": 800,
+  "traj_length": 500,
+  "target_equilibria": [
+    [-1.0, 0.0],
+    [1.0, 0.0]
+  ],
+  "seed": 42,
+  "verbose": false
+}

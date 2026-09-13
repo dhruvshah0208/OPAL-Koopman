@@ -1,0 +1,5 @@
+{
+  "classifiers_path": "data/bistable_oscillations/classifiers.npz",
+  "validation_data_path": "data/bistable_oscillations/bistable_oscillations_validation_data.npz",
+  "allow_label_flip_for_binary": true
+}

@@ -1,0 +1,17 @@
+{
+  "explanation": {
+    "_note": "Documentation only; ignored by validate_partition.py. Paths are relative to the project root unless absolute.",
+    "partition_path": "Path to partition_output.npz produced by build_partition.py.",
+    "validation_data_path": "Path to labeled validation .npz from generate_validation_data.py (must contain X and labels).",
+    "target_equilibria": "One inline state vector per class, e.g. [[x1, x2], [x1, x2]]. Mutually exclusive with target_data_paths.",
+    "target_data_paths": "List of .npz paths, one per class. The final snapshot of the first trajectory (or last row of X) is used as the class anchor. Mutually exclusive with target_equilibria.",
+    "exclude_dropped_predictions": "Reserved for future use; dropped and unmapped predictions are already excluded from accuracy totals."
+  },
+  "partition_path": "data/bistable_oscillations/partition_output.npz",
+  "validation_data_path": "data/bistable_oscillations/bistable_oscillations_validation_data.npz",
+  "target_data_paths": [
+    "data/bistable_oscillations/bistable_oscillations_target_data1.npz",
+    "data/bistable_oscillations/bistable_oscillations_target_data2.npz"
+  ],
+  "exclude_dropped_predictions": true
+}

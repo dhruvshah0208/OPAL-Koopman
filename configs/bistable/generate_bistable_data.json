@@ -1,0 +1,13 @@
+{
+    "data_subfolder": "bistable",
+    "system_name": "bistable",
+    "file_name": "bistable_data.npz",
+    "num_traj": 500,
+    "traj_length": 21,
+    "compute_k_means": true,
+    "n_global_centers": 200,
+    "random_center_seed": 42,
+    "seed": 42,
+    "verbose": false
+  }
+  

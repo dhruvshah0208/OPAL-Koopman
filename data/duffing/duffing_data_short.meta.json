@@ -1,0 +1,1 @@
+{"system_name": "duffing_eqn", "num_traj": 50, "traj_length": 101, "data_subfolder": "duffing", "file_name": "duffing_data_short.npz", "compute_k_means": true, "n_global_centers": 500, "random_center_seed": 42, "seed": 42}
