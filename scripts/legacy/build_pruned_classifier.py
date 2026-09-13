@@ -1,26 +1,29 @@
+"""
+LEGACY: earlier single-eigenfunction basin classifier (not the paper pipeline).
+Kept for reference; the paper uses scripts/build_partition.py instead.
+"""
+
 import json
 import sys
 from pathlib import Path
 
 import numpy as np
 
-_ROOT = Path(__file__).resolve().parent
-_KOOPMAN_ROOT = _ROOT.parent
-_SRC_DEEP_KOOPMAN = _ROOT / "src_deep_koopman"
-_PRUNING_ROOT = _KOOPMAN_ROOT / "MPV-SPV-pruning-code"
-for _path in (_ROOT, _SRC_DEEP_KOOPMAN, _PRUNING_ROOT):
-    if _path.is_dir() and str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # project root
 
-import run_pruning  # noqa: E402
+import run_pruning  # noqa: E402  (sibling legacy script)
 from src.helper_functions import compute_lifting_matrices  # noqa: E402
-from src_basin_classification import (  # noqa: E402
+
+from omega_partition.legacy import (  # noqa: E402
     apply_eigenvector,
     basin_mask_from_eigenfunction,
     filter_snapshots_by_mask,
     make_phase_space_grid,
     sorted_koopman_eigenmodes,
 )
+from omega_partition.paths import PROJECT_ROOT  # noqa: E402
+
+_ROOT = PROJECT_ROOT
 
 DEFAULT_CONFIG_PATH = _ROOT / "configs/duffing/build_pruned_classifier.json"
 

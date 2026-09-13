@@ -1,24 +1,32 @@
+"""
+LEGACY: earlier single-eigenfunction basin classifier (not the paper pipeline).
+Kept for reference; the paper uses scripts/build_partition.py instead.
+"""
+
 import json
 import sys
 from pathlib import Path
 
-
-
 import numpy as np
-from src_deep_koopman.basis_functions import *
-from src_deep_koopman.dynamical_systems import SystemsAutonomous
-from src_basin_classification import (
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # project root
+
+from omega_partition.paths import PROJECT_ROOT  # noqa: E402  (must precede src_deep_koopman)
+from src.basis_functions import CombinedDictionary, PolynomialBasis, RadialBasis  # noqa: E402
+from src_deep_koopman.dynamical_systems import SystemsAutonomous  # noqa: E402
+
+from omega_partition.invariants import compute_approximate_invariant_observables  # noqa: E402
+from omega_partition.legacy import (  # noqa: E402
     apply_eigenvector,
     basin_mask_from_eigenfunction,
-    compute_approximate_invariant_observables,
     filter_snapshots_by_mask,
-    fit_edmd_operator,
     make_phase_space_grid,
     plot_combined_classifier_dashboard,
     sorted_koopman_eigenmodes,
 )
+from omega_partition.switched_models import fit_edmd_operator  # noqa: E402
 
-_ROOT = Path(__file__).resolve().parent
+_ROOT = PROJECT_ROOT
 DEFAULT_DATA_PATH = _ROOT / "data/duffing/duffing_data.npz"
 
 _DEFAULTS = {

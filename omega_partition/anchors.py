@@ -1,4 +1,10 @@
-"""Shared target-anchored partition classification helpers for validation scripts."""
+"""Target-anchored classification: map partition ids to semantic classes via anchor states.
+
+Anchors are either explicit target equilibria or the terminal snapshots of
+reference trajectories (limit cycles). Each anchor is classified by the saved
+partition; the resulting partition-id -> class map is applied to validation data
+and compared with ground-truth labels.
+"""
 
 from __future__ import annotations
 
@@ -8,14 +14,11 @@ from typing import Any
 
 import numpy as np
 
-from src_basin_classification import (
-    build_rbf_polynomial_dictionary,
-    evaluate_invariant_embedding,
-    predict_graph_merged_labels,
-)
-
-_VALIDATION_DIR = Path(__file__).resolve().parent
-ROOT = _VALIDATION_DIR.parent
+from .dictionary import build_rbf_polynomial_dictionary
+from .invariants import evaluate_invariant_embedding
+from .partition import predict_graph_merged_labels
+from .paths import resolve
+from .tables import print_table
 
 
 @dataclass
@@ -39,10 +42,6 @@ class PartitionClassificationResult:
     anchor_partitions: np.ndarray
     correct_mask: np.ndarray
     table_rows: list[TableRow]
-
-
-def resolve_path(path: Path) -> Path:
-    return path if path.is_absolute() else (ROOT / path)
 
 
 def apply_anchor_config(raw: dict[str, Any], settings: dict[str, Any]) -> None:
@@ -82,7 +81,7 @@ def validate_target_data_paths(raw: Any) -> list[Path]:
     else:
         raise ValueError("target_data_paths must be a path string or a list of path strings.")
 
-    resolved = [resolve_path(Path(item)) for item in paths]
+    resolved = [resolve(item) for item in paths]
     for path in resolved:
         if not path.is_file():
             raise FileNotFoundError(f"Target data file not found: {path}")
@@ -259,23 +258,7 @@ def print_classification_table(rows: list[TableRow]) -> None:
         )
         for r in rows
     ]
-    widths = [
-        max(len(headers[i]), *(len(row[i]) for row in body))
-        for i in range(len(headers))
-    ]
-
-    def _line(ch: str = "-") -> str:
-        return "+" + "+".join(ch * (w + 2) for w in widths) + "+"
-
-    def _fmt(row: tuple[str, ...]) -> str:
-        return "| " + " | ".join(row[i].ljust(widths[i]) for i in range(len(row))) + " |"
-
-    print(_line("-"))
-    print(_fmt(headers))
-    print(_line("="))
-    for row in body:
-        print(_fmt(row))
-    print(_line("-"))
+    print_table(headers, body)
 
 
 def print_anchor_assignments(

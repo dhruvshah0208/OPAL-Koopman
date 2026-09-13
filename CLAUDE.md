@@ -1,9 +1,8 @@
 # Switched_Linear_Models
 
 Code for "Learning Omega-Limit Partitions from Approximate Koopman Invariants"
-(`docs/acc_27_multiple-linear-models.tex`). Recovers the omega-limit partition of a
-dynamical system from approximate Koopman invariant observables (Algorithm 1 in the paper),
-then fits one local EDMD model per partition cell.
+(`docs/acc_27_multiple-linear-models.tex`). See `README.md` for the layout and the
+per-stage run commands; this file holds what is not obvious from the code.
 
 ## Environment
 
@@ -13,43 +12,39 @@ Always run code with the `macbook_env` conda environment:
 conda activate macbook_env
 ```
 
-(Python 3.11.4, numpy 2.2, scipy 1.13, scikit-learn 1.7.) The scripts depend on two
-packages that live outside this folder and are importable only inside that env:
+(Python 3.11.4, numpy 2.2, scipy 1.13, scikit-learn 1.7.) Two dependencies live outside
+this repo and are importable only in that env: `src` (editable install of
+`../MPV-SPV-pruning-code`) and `src_deep_koopman` (editable install of
+`~/Documents/PhD-code-files/Benchmarking_Deep_Koopman`). `omega_partition/paths.py`
+appends the `src_deep_koopman` package directory to `sys.path` because its
+`dynamical_systems` module does `from utils import ts`; import `omega_partition`
+before `src_deep_koopman`. Use `MPLBACKEND=Agg` when running headless.
 
-- `src` (basis functions `RadialBasis`, `PolynomialBasis`, `CombinedDictionary`, pruning)
-  -> editable install of `../MPV-SPV-pruning-code`.
-- `src_deep_koopman` (`SystemsAutonomous` dynamical-system simulator)
-  -> editable install of `~/Documents/PhD-code-files/Benchmarking_Deep_Koopman`.
+## Conventions
 
-When running headless (no display), set `MPLBACKEND=Agg`; several scripts call
-`plt.show()` when `show_plots` is true.
-
-## Pipeline (run from the project root, each script takes one JSON config)
-
-```bash
-python data/generate_data.py            configs/<sys>/generate_<sys>_data.json   # training snapshots + K-means RBF centers
-python data/generate_validation_data.py configs/<sys>/generate_validation_data.json  # labeled validation trajectories
-python build_partition.py               configs/<sys>/build_partition.json       # GEP -> cluster -> merge  (Algorithm 1)
-python validation/validate_partition.py configs/<sys>/validate_partition.json    # anchor-based partition accuracy
-python build_multiple_linear_models.py  configs/<sys>/build_multiple_linear_models.json  # local EDMD per cell + rollout metrics + figures
-python generate_plots.py                                                         # paper figures from saved plot_data.npz
-```
-
-`<sys>` is `duffing` or `bistable_oscillations` (paper examples) or `bistable` (1-D toy).
-Config paths are relative to the project root. Datasets are already generated under `data/`;
-steps 3-5 can be run without regenerating.
+- Scripts live in `scripts/` and bootstrap `sys.path` with the project root so that
+  `omega_partition` imports without installation. Each script takes one JSON config;
+  relative paths in configs resolve against the project root (`omega_partition.paths.resolve`).
+- Library code goes in `omega_partition/`; scripts should only orchestrate, print, and save.
+- Do not write pipeline outputs into `data/` or `figures/` when experimenting — point the
+  config's output paths elsewhere; the tracked `.meta.json` files describe how the
+  datasets were generated.
 
 ## Gotchas
 
-- `bistable_oscillations` is NOT registered in the currently installed `src_deep_koopman`
-  `systems_dict`, so `generate_data.py` cannot regenerate that dataset; the saved `.npz`
-  files still work for the partition/model steps.
 - The first GEP mode is the constant function when the dictionary contains the constant
-  (`d_poly >= 0`). Asking k-means to split it (`scalar_cluster_count[0] > 1`) splits on
-  floating-point noise and is not reproducible across machines. Use `1` for that mode
-  (or `skip_first_mode: true`). Duffing with `[1, 4]` reproduces Table I exactly.
+  (`d_poly >= 0`); its `scalar_cluster_count` entry must be `1`. Duffing with `[1, 4]`
+  reproduces Table I exactly (the paper text still says (2, 4)).
+- The 1-D `bistable` toy has four GEP eigenvalues at ~1e-9 (degenerate): its fine-cell
+  layout changes with BLAS floating-point noise (e.g. whether torch is loaded in the
+  process). Final results (2 cells, ~99.8%) are stable; the intermediate counts are not.
+- `bistable_oscillations` is not in the installed `src_deep_koopman` `systems_dict`;
+  `generate_data.py` cannot regenerate it and `build_multiple_linear_models.py` falls
+  back to validation trajectories for phase plots.
 - RBF convention in code is `exp(-gamma * ||x - c||^2)` (gamma = precision); the paper's
   `exp(-r^2 / 2 gamma^2)` text is inconsistent with the code.
-- `build_classifier.py`, `build_pruned_classifier.py`, `run_pruning.py`,
-  `validation/validate_classifier.py` are the older single-eigenfunction "Tier 1/2"
-  classifier approach, not used in the paper.
+- Both `build_multiple_linear_models.json` configs fit the local EDMD models on the
+  validation set (`data_path` == `validation_data_path`); the partition itself is fit on
+  the training set.
+- `scripts/legacy/` is the older single-eigenfunction classifier and pruning path; not
+  used in the paper.

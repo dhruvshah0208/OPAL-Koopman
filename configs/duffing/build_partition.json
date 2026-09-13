@@ -26,7 +26,7 @@
   "reg": 1e-8,
   "max_invariant_modes": 2,
   "skip_first_mode": false,
-  "scalar_cluster_count": [2, 4],
+  "scalar_cluster_count": [1, 4],
   "tau_occ": 0.002,
   "tau_tr": 0.005,
   "tau_val": 0.0,

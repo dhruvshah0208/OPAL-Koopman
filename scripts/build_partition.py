@@ -1,29 +1,39 @@
-import json
+"""
+Build the graph-merged approximate omega-limit partition (Algorithm 1).
+
+Loads snapshot pairs and RBF centers from ``data_path``, solves the generalized
+eigenvalue problem for approximate invariant observables, clusters each invariant
+coordinate, merges fine cells by transition/value-space criteria, and saves
+``partition_output.npz`` (everything needed to classify new states).
+
+Run:
+    python scripts/build_partition.py configs/<system>/build_partition.json
+"""
+
 import sys
 from pathlib import Path
 
 import numpy as np
 
-_ROOT = Path(__file__).resolve().parent
-_KOOPMAN_ROOT = _ROOT.parent
-_SRC_DEEP_KOOPMAN = _ROOT / "src_deep_koopman"
-_PRUNING_ROOT = _KOOPMAN_ROOT / "MPV-SPV-pruning-code"
-for _path in (_ROOT, _SRC_DEEP_KOOPMAN, _PRUNING_ROOT):
-    if _path.is_dir() and str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root
 
-from src_basin_classification import (
-    build_rbf_polynomial_dictionary,
+from omega_partition.config import config_path_from_argv, load_json_config  # noqa: E402
+from omega_partition.dictionary import build_rbf_polynomial_dictionary  # noqa: E402
+from omega_partition.invariants import (  # noqa: E402
     compute_approximate_invariant_observables,
     evaluate_invariant_embedding,
-    fit_graph_merged_partition,
+    select_invariant_modes,
+)
+from omega_partition.partition import fit_graph_merged_partition  # noqa: E402
+from omega_partition.paths import PROJECT_ROOT, resolve  # noqa: E402
+from omega_partition.plotting import (  # noqa: E402
     plot_inter_centroid_distances,
     plot_invariant_embedding_2d,
     plot_invariant_scalar_histograms,
     plot_state_partition_2d,
-    select_invariant_modes,
 )
 
+_ROOT = PROJECT_ROOT
 DEFAULT_CONFIG_PATH = _ROOT / "configs/duffing/build_partition.json"
 
 _DEFAULTS = {
@@ -50,12 +60,7 @@ def _settings(config_path: Path | None) -> dict:
     if config_path is None:
         return s
 
-    with open(config_path) as f:
-        raw = json.load(f)
-    if not isinstance(raw, dict):
-        raise ValueError("Config must be a JSON object.")
-    if "data_path" not in raw:
-        raise ValueError("Config must include 'data_path' (path to .npz from generate_data.py).")
+    raw = load_json_config(config_path, required=("data_path",))
 
     for key in _DEFAULTS:
         if key in raw:
@@ -173,9 +178,7 @@ def _save_partition(
     system_name: str,
     cfg: dict,
 ) -> None:
-    output_path = Path(output_path)
-    if not output_path.is_absolute():
-        output_path = _ROOT / output_path
+    output_path = resolve(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     retained_cell_ids = np.asarray(result["retained_cell_ids"], dtype=np.int64)
@@ -253,9 +256,7 @@ def _save_partition(
 def main(config_path: Path | None = None) -> None:
     cfg = _settings(config_path)
 
-    data_path = Path(cfg["data_path"])
-    if not data_path.is_absolute():
-        data_path = _ROOT / data_path
+    data_path = resolve(cfg["data_path"])
     if not data_path.is_file():
         raise FileNotFoundError(f"Data file not found: {data_path}")
 
@@ -349,9 +350,4 @@ def main(config_path: Path | None = None) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 2:
-        raise SystemExit("usage: build_partition.py [CONFIG.json]")
-    cfg_path = Path(sys.argv[1]).resolve() if len(sys.argv) == 2 else DEFAULT_CONFIG_PATH
-    if not cfg_path.is_file():
-        raise SystemExit(f"Config not found: {cfg_path}")
-    main(cfg_path)
+    main(config_path_from_argv("build_partition.py", DEFAULT_CONFIG_PATH))

@@ -5,8 +5,8 @@ Shows fine cells with transition edges (tau_tr, blue arrows) and value-space
 edges (tau_val, orange dashed lines between cluster centroids) in one panel.
 
 Usage:
-  python generate_merge_diagram.py
-  python generate_merge_diagram.py --show
+  python scripts/generate_merge_diagram.py
+  python scripts/generate_merge_diagram.py --show
 '''
 
 from __future__ import annotations
@@ -19,7 +19,7 @@ import numpy as np
 from matplotlib.patches import Circle, Ellipse, FancyArrowPatch
 from matplotlib.path import Path as MplPath
 
-_ROOT = Path(__file__).resolve().parent
+_ROOT = Path(__file__).resolve().parents[1]  # project root
 OUTPUT_PATH = _ROOT / "docs" / "figures" / "algorithm" / "merge_graph_schematic.png"
 
 # Layout and typography — edit before regenerating

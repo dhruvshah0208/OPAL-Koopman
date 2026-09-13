@@ -6,21 +6,25 @@ Reads arrays written by build_multiple_linear_models.save_plot_data and writes:
   docs/figures/<system>/multiple_linear_models/phase_trajectories.png
 
 Usage:
-  python generate_plots.py
-  python generate_plots.py configs/duffing/build_multiple_linear_models.json
-  python generate_plots.py data/duffing/multiple_linear_models_plot_data.npz
+  python scripts/generate_plots.py
+  python scripts/generate_plots.py configs/duffing/build_multiple_linear_models.json
+  python scripts/generate_plots.py data/duffing/multiple_linear_models_plot_data.npz
 '''
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 
 import numpy as np
 
-_ROOT = Path(__file__).resolve().parent
-_DOCS_FIGURES = _ROOT / "docs" / "figures"
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root
+
+from omega_partition.paths import DOCS_FIGURES_DIR, PROJECT_ROOT, resolve  # noqa: E402
+from omega_partition.plotting import finalize_figure  # noqa: E402
+
+_ROOT = PROJECT_ROOT
+_DOCS_FIGURES = DOCS_FIGURES_DIR
 
 DEFAULT_PLOT_CONFIGS = (
     _ROOT / "configs/duffing/build_multiple_linear_models.json",
@@ -35,8 +39,6 @@ PAPER_TICK_FONT_SIZE = 12
 PAPER_LEGEND_FONT_SIZE = 12
 
 from build_multiple_linear_models import (  # noqa: E402
-    _finalize_figure,
-    _resolve,
     _settings,
     load_plot_data,
     rollouts_from_arrays,
@@ -120,7 +122,7 @@ def _plot_state_partition_for_paper(
         tick_font_size=tick_font_size,
     )
     plt.tight_layout()
-    _finalize_figure(fig, save_path=save_path, show=show)
+    finalize_figure(fig, save_path=save_path, show=show)
     return fig
 
 
@@ -185,13 +187,13 @@ def _plot_phase_trajectories_for_paper(
         tick_font_size=tick_font_size,
     )
     plt.tight_layout()
-    _finalize_figure(fig, save_path=save_path, show=show)
+    finalize_figure(fig, save_path=save_path, show=show)
     return fig
 
 
 def _plot_data_path_from_config(config_path: Path) -> Path:
     cfg = _settings(config_path)
-    return _resolve(cfg["plot_data_output_path"])
+    return resolve(cfg["plot_data_output_path"])
 
 
 def generate_paper_plots(

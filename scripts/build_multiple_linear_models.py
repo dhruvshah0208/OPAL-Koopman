@@ -1,51 +1,46 @@
-'''
+"""
 Build switched (multiple local linear) Koopman models on a graph-merged partition.
 
 For each partition component, fit a local EDMD model on snapshot pairs from
-data_path, save switched_models.npz and multiple_linear_models_plot_data.npz,
-plot partition scatter and phase trajectories, then evaluate one-step and
-rollout RMSE on validation_data_path using target-anchored classification
-(metrics computed only on correctly classified snapshots / trajectories with
+``data_path``, save ``switched_models.npz`` and ``multiple_linear_models_plot_data.npz``,
+plot the partition scatter and phase trajectories, then evaluate one-step and
+rollout errors on ``validation_data_path`` using target-anchored classification
+(metrics are computed only on correctly classified snapshots / trajectories with
 correctly classified initial conditions).
 
-Paper figures can be regenerated from the saved plot data with generate_plots.py.
+Paper figures can be regenerated from the saved plot data with ``scripts/generate_plots.py``.
 
-Run with a config from configs/<system>/build_multiple_linear_models.json.
-'''
+Run:
+    python scripts/build_multiple_linear_models.py configs/<system>/build_multiple_linear_models.json
+"""
 
-import json
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
 
-_ROOT = Path(__file__).resolve().parent
-_VALIDATION_DIR = _ROOT / "validation"
-_KOOPMAN_ROOT = _ROOT.parent
-_SRC_DEEP_KOOPMAN = _ROOT / "src_deep_koopman"
-_PRUNING_ROOT = _KOOPMAN_ROOT / "MPV-SPV-pruning-code"
-for _path in (_ROOT, _SRC_DEEP_KOOPMAN, _PRUNING_ROOT):
-    if _path.is_dir() and str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
-if str(_VALIDATION_DIR) not in sys.path:
-    sys.path.insert(0, str(_VALIDATION_DIR))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root
 
-from partition_classification import (
+from omega_partition.anchors import (  # noqa: E402
     apply_anchor_config,
     classify_with_anchors,
     print_anchor_assignments,
     print_classification_table,
 )
-from src_basin_classification import (
-    build_rbf_polynomial_dictionary,
-    classify_partition_labels,
-    fit_switched_edmd_models,
-    load_partition_inference,
-    sample_edmd_centers,
-    switched_koopman_rollout,
+from omega_partition.config import config_path_from_argv, load_json_config  # noqa: E402
+from omega_partition.dictionary import build_rbf_polynomial_dictionary, sample_edmd_centers  # noqa: E402
+from omega_partition.partition import classify_partition_labels, load_partition_inference  # noqa: E402
+from omega_partition.paths import PROJECT_ROOT, resolve  # noqa: E402
+from omega_partition.plotting import (  # noqa: E402
+    finalize_figure,
+    plot_state_partition_1d,
+    plot_state_partition_2d,
 )
+from omega_partition.switched_models import fit_switched_edmd_models, switched_koopman_rollout  # noqa: E402
+from omega_partition.tables import print_table  # noqa: E402
 
+_ROOT = PROJECT_ROOT
 DEFAULT_CONFIG_PATH = _ROOT / "configs/duffing/build_multiple_linear_models.json"
 
 _DEFAULTS = {
@@ -89,19 +84,9 @@ def _settings(config_path: Path | None) -> dict:
     if config_path is None:
         return s
 
-    with open(config_path) as f:
-        raw = json.load(f)
-    if not isinstance(raw, dict):
-        raise ValueError("Config must be a JSON object.")
-    if "data_path" not in raw:
-        raise ValueError("Config must include 'data_path' (path to .npz from generate_data.py).")
-    if "partition_path" not in raw:
-        raise ValueError("Config must include 'partition_path' (path to partition_output.npz).")
-    if "centers_global_data_path" not in raw:
-        raise ValueError(
-            "Config must include 'centers_global_data_path' "
-            "(path to .npz containing centers_global from generate_data.py)."
-        )
+    raw = load_json_config(
+        config_path, required=("data_path", "partition_path", "centers_global_data_path")
+    )
 
     for key in _DEFAULTS:
         if key in raw:
@@ -145,7 +130,7 @@ def _settings(config_path: Path | None) -> dict:
     elif "plot_data_output_path" in s:
         s["plot_data_output_path"] = Path(s["plot_data_output_path"])
     else:
-        s["plot_data_output_path"] = _resolve(s["output_path"]).with_name(
+        s["plot_data_output_path"] = resolve(s["output_path"]).with_name(
             "multiple_linear_models_plot_data.npz"
         )
     if "docs_figures_relpath" in raw:
@@ -166,12 +151,8 @@ def _docs_figures_relpath_from_cfg(cfg: dict) -> str:
     return str(plots_dir)
 
 
-def _resolve(path: Path) -> Path:
-    return path if path.is_absolute() else (_ROOT / path)
-
-
 def _load_centers_global(path: Path) -> np.ndarray:
-    path = _resolve(path)
+    path = resolve(path)
     if not path.is_file():
         raise FileNotFoundError(f"Centers data file not found: {path}")
     data = np.load(path)
@@ -181,19 +162,6 @@ def _load_centers_global(path: Path) -> np.ndarray:
             "Regenerate the dataset with generate_data.py."
         )
     return np.asarray(data["centers_global"])
-
-
-def _finalize_figure(fig, *, save_path: Path | None, show: bool) -> None:
-    import matplotlib.pyplot as plt
-
-    if save_path is not None:
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(save_path, dpi=150, bbox_inches="tight")
-        print(f"Plot saved to {save_path}")
-    if show:
-        plt.show()
-    else:
-        plt.close(fig)
 
 
 def _pack_rollouts(rollouts: list | None) -> tuple[np.ndarray, np.ndarray]:
@@ -240,7 +208,7 @@ def save_plot_data(
     evaluation: dict | None = None,
 ) -> None:
     """Persist arrays used to render switched-model paper figures."""
-    output_path = _resolve(Path(output_path))
+    output_path = resolve(Path(output_path))
     output_path.parent.mkdir(parents=True, exist_ok=True)
     evaluation = evaluation or {}
     true_stack, pred_stack = _pack_rollouts(phase_rollouts)
@@ -265,7 +233,7 @@ def save_plot_data(
 
 def load_plot_data(path: Path | str) -> dict:
     """Load arrays written by save_plot_data."""
-    path = _resolve(Path(path))
+    path = resolve(Path(path))
     if not path.is_file():
         raise FileNotFoundError(f"Plot data file not found: {path}")
     data = np.load(path, allow_pickle=False)
@@ -305,95 +273,6 @@ def load_plot_data(path: Path | str) -> dict:
     }
 
 
-def _plot_state_partition_2d(
-    X,
-    labels,
-    *,
-    title: str | None = None,
-    save_path: Path | None = None,
-    show: bool = False,
-):
-    import matplotlib.pyplot as plt
-    from matplotlib.colors import ListedColormap
-
-    X = np.asarray(X)
-    labels = np.asarray(labels).ravel()
-    if X.ndim != 2 or X.shape[1] != 2:
-        raise ValueError("plot_state_partition_2d requires X with shape (N, 2).")
-    if X.shape[0] != labels.shape[0]:
-        raise ValueError("X and labels must have the same number of rows.")
-
-    partition_cmap = ListedColormap(["red", "blue", "green", "orange"])
-    partition_cmap.set_under("lightgray")
-
-    fig, ax = plt.subplots(figsize=(7, 6))
-    scatter = ax.scatter(
-        X[:, 0],
-        X[:, 1],
-        c=labels,
-        s=4,
-        alpha=0.45,
-        edgecolors="none",
-        cmap=partition_cmap,
-        vmin=0,
-        vmax=len(partition_cmap.colors) - 1,
-    )
-    fig.colorbar(scatter, ax=ax, label="partition label")
-    ax.set_xlabel(r"$x_1$")
-    ax.set_ylabel(r"$x_2$")
-    ax.set_title(title or "State-space partition")
-    ax.grid(alpha=0.3)
-    plt.tight_layout()
-    _finalize_figure(fig, save_path=save_path, show=show)
-    return fig
-
-
-def _plot_state_partition_1d(
-    X,
-    labels,
-    *,
-    title: str | None = None,
-    save_path: Path | None = None,
-    show: bool = False,
-):
-    import matplotlib.pyplot as plt
-    from matplotlib.colors import ListedColormap
-
-    X = np.asarray(X)
-    labels = np.asarray(labels).ravel()
-    if X.ndim != 2 or X.shape[1] != 1:
-        raise ValueError("plot_state_partition_1d requires X with shape (N, 1).")
-    if X.shape[0] != labels.shape[0]:
-        raise ValueError("X and labels must have the same number of rows.")
-
-    partition_cmap = ListedColormap(["red", "blue", "green", "orange"])
-    partition_cmap.set_under("lightgray")
-
-    rng = np.random.default_rng(0)
-    jitter = rng.uniform(-0.05, 0.05, size=X.shape[0])
-
-    fig, ax = plt.subplots(figsize=(8, 3))
-    scatter = ax.scatter(
-        X[:, 0],
-        jitter,
-        c=labels,
-        s=4,
-        alpha=0.45,
-        edgecolors="none",
-        cmap=partition_cmap,
-        vmin=0,
-        vmax=len(partition_cmap.colors) - 1,
-    )
-    fig.colorbar(scatter, ax=ax, label="partition label")
-    ax.set_xlabel(r"$x_1$")
-    ax.set_yticks([])
-    ax.set_title(title or "State-space partition")
-    ax.grid(alpha=0.3)
-    plt.tight_layout()
-    _finalize_figure(fig, save_path=save_path, show=show)
-    return fig
-
-
 def _save_models(
     output_path: Path,
     *,
@@ -403,7 +282,7 @@ def _save_models(
     edmd_centers: np.ndarray,
     n: int,
 ) -> None:
-    output_path = _resolve(Path(output_path))
+    output_path = resolve(Path(output_path))
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     labels = sorted(models["K_by_label"].keys())
@@ -439,7 +318,7 @@ def _save_models(
         n=np.int64(n),
         n_dict=np.int64(models["n_dict"]),
         n_state=np.int64(models["n_state"]),
-        partition_path=np.array(str(_resolve(cfg["partition_path"]))),
+        partition_path=np.array(str(resolve(cfg["partition_path"]))),
         system_name=np.array(cfg["system_name"]),
     )
     print(f"Switched models saved to {output_path}")
@@ -469,7 +348,7 @@ def _print_training_diagnostics(models: dict, labels: np.ndarray) -> None:
 
 
 def _load_eval_data(path: Path) -> tuple[np.ndarray, np.ndarray, np.ndarray | None, np.ndarray]:
-    path = _resolve(path)
+    path = resolve(path)
     data = np.load(path)
     if "X" not in data or "Y" not in data:
         raise KeyError(f"{path} must contain 'X' and 'Y' snapshot pairs.")
@@ -637,21 +516,7 @@ def _print_rollout_rel_rmse_times(metrics: dict[str, float]) -> None:
         f"{float(rel_values.get(t, float('nan'))):.6g}" if t in rel_values else "nan"
         for t in rel_times
     )
-    body = (("Mean rel.\ error", *values),)
-    widths = [max(len(headers[i]), *(len(row[i]) for row in body)) for i in range(len(headers))]
-
-    def _line(ch: str = "-") -> str:
-        return "+" + "+".join(ch * (w + 2) for w in widths) + "+"
-
-    def _fmt(row: tuple[str, ...]) -> str:
-        return "| " + " | ".join(row[i].ljust(widths[i]) for i in range(len(row))) + " |"
-
-    print(_line("-"))
-    print(_fmt(headers))
-    print(_line("="))
-    for row in body:
-        print(_fmt(row))
-    print(_line("-"))
+    print_table(headers, [("Mean rel. error", *values)])
 
 
 def _print_cell_table(rows: list[CellResult]) -> None:
@@ -669,21 +534,7 @@ def _print_cell_table(rows: list[CellResult]) -> None:
     if not body:
         print("No components with evaluation samples.")
         return
-
-    widths = [max(len(headers[i]), *(len(row[i]) for row in body)) for i in range(len(headers))]
-
-    def _line(ch: str = "-") -> str:
-        return "+" + "+".join(ch * (w + 2) for w in widths) + "+"
-
-    def _fmt(row: tuple[str, ...]) -> str:
-        return "| " + " | ".join(row[i].ljust(widths[i]) for i in range(len(row))) + " |"
-
-    print(_line("-"))
-    print(_fmt(headers))
-    print(_line("="))
-    for row in body:
-        print(_fmt(row))
-    print(_line("-"))
+    print_table(headers, body)
 
 
 def _run_classification_gated_evaluation(
@@ -693,7 +544,7 @@ def _run_classification_gated_evaluation(
     partition: dict,
     Phi_edmd,
 ) -> dict:
-    validation_data_path = _resolve(cfg["validation_data_path"])
+    validation_data_path = resolve(cfg["validation_data_path"])
     if not validation_data_path.is_file():
         raise FileNotFoundError(f"Validation data file not found: {validation_data_path}")
 
@@ -716,7 +567,7 @@ def _run_classification_gated_evaluation(
     n_total = int(correct_mask.shape[0])
 
     print()
-    print(f"--- Classification-gated evaluation ---")
+    print("--- Classification-gated evaluation ---")
     print(f"Validation data: {validation_data_path}")
     print(f"Samples: {X_val.shape[0]}")
     print(f"Fitted components: {sorted(models['K_by_label'].keys())}")
@@ -847,10 +698,7 @@ def _simulate_true_trajectories(
     initial_conditions: np.ndarray,
     horizon: int,
 ) -> np.ndarray:
-    try:
-        from src_deep_koopman.dynamical_systems import SystemsAutonomous
-    except ImportError:  # pragma: no cover
-        from dynamical_systems import SystemsAutonomous  # type: ignore[import-not-found]
+    from src_deep_koopman.dynamical_systems import SystemsAutonomous
 
     system = SystemsAutonomous(system_name)
     n_steps = horizon + 1
@@ -878,7 +726,7 @@ def _collect_phase_plot_rollouts(
         print(f"\nPhase plots: simulating {ics.shape[0]} trajectory(s) from ICs_phase_plot")
         try:
             true_trajs = _simulate_true_trajectories(cfg["system_name"], ics, horizon)
-        except ModuleNotFoundError as exc:
+        except (ModuleNotFoundError, ValueError) as exc:
             print(
                 f"Warning: could not simulate true trajectories ({exc}). "
                 "Falling back to sampled validation trajectories for phase plots."
@@ -923,67 +771,6 @@ def _collect_phase_plot_rollouts(
         n_traj=cfg["num_phase_plot"],
         rng=phase_rng,
     )
-
-
-def _plot_rollouts(
-    rollouts: list,
-    system_name: str,
-    *,
-    save_path: Path | None = None,
-    show: bool = False,
-):
-    import matplotlib.pyplot as plt
-
-    if not rollouts:
-        return None
-
-    n_state = rollouts[0][0].shape[1]
-    horizon = rollouts[0][0].shape[0]
-    n_traj = len(rollouts)
-    fig, axes = plt.subplots(n_state, 1, figsize=(8, 3.0 * n_state), squeeze=False)
-    t = np.arange(horizon)
-
-    for j in range(n_state):
-        ax = axes[j, 0]
-        errors = np.full((n_traj, horizon), np.nan, dtype=np.float64)
-        rel_errors = np.full((n_traj, horizon), np.nan, dtype=np.float64)
-        for i, (true_traj, pred_traj, _) in enumerate(rollouts):
-            valid = np.isfinite(pred_traj[:, j])
-            errors[i, valid] = pred_traj[valid, j] - true_traj[valid, j]
-            rel_errors[i, valid] = errors[i, valid] / np.linalg.norm(true_traj[valid, j])
-                
-        mean_err = np.nanmean(rel_errors, axis=0)
-        std_err = np.nanstd(rel_errors, axis=0)
-        has_data = np.isfinite(mean_err)
-        if not np.any(has_data):
-            continue
-
-        t_valid = t[has_data]
-        mean_valid = mean_err[has_data]
-        std_valid = std_err[has_data]
-        ax.plot(t_valid, mean_valid, color="crimson", lw=1.5, label="mean relative error")
-        ax.fill_between(
-            t_valid,
-            mean_valid - std_valid,
-            mean_valid + std_valid,
-            color="crimson",
-            alpha=0.25,
-            label=r"$\pm 1$ std",
-        )
-        ax.axhline(0.0, color="black", lw=0.8, ls="--", alpha=0.5)
-        ax.set_ylabel(rf"relative error in $x_{j + 1}$")
-        ax.set_title(rf"Rollout relative error: $x_{j + 1}$ (pred $-$ true)")
-        ax.legend(loc="best")
-        ax.grid(alpha=0.3)
-
-    axes[-1, 0].set_xlabel("time step")
-    fig.suptitle(
-        f"Switched-model rollout errors ({system_name}, {n_traj} trajectories)",
-        y=1.01,
-    )
-    plt.tight_layout()
-    _finalize_figure(fig, save_path=save_path, show=show)
-    return fig
 
 
 def _plot_phase_trajectories(
@@ -1040,20 +827,20 @@ def _plot_phase_trajectories(
         y=1.01,
     )
     plt.tight_layout()
-    _finalize_figure(fig, save_path=save_path, show=show)
+    finalize_figure(fig, save_path=save_path, show=show)
     return fig
 
 
 def main(config_path: Path | None = None) -> None:
     cfg = _settings(config_path)
 
-    partition_path = _resolve(cfg["partition_path"])
+    partition_path = resolve(cfg["partition_path"])
     if not partition_path.is_file():
         raise FileNotFoundError(f"Partition archive not found: {partition_path}")
-    data_path = _resolve(cfg["data_path"])
+    data_path = resolve(cfg["data_path"])
     if not data_path.is_file():
         raise FileNotFoundError(f"Data file not found: {data_path}")
-    centers_global_path = _resolve(cfg["centers_global_data_path"])
+    centers_global_path = resolve(cfg["centers_global_data_path"])
 
     partition = load_partition_inference(partition_path)
     print(f" Partition loaded from {partition_path}")
@@ -1105,12 +892,12 @@ def main(config_path: Path | None = None) -> None:
         n=n,
     )
 
-    plots_dir = _resolve(cfg["plots_output_dir"]) if cfg["plots_output_dir"] else None
+    plots_dir = resolve(cfg["plots_output_dir"]) if cfg["plots_output_dir"] else None
     show = cfg["show_plots"]
     phase_rollouts = None
     if cfg["show_plots"] or cfg["plots_output_dir"]:
         if n == 2:
-            _plot_state_partition_2d(
+            plot_state_partition_2d(
                 X,
                 labels,
                 title="Training data colored by partition component",
@@ -1118,7 +905,7 @@ def main(config_path: Path | None = None) -> None:
                 show=show,
             )
         elif n == 1:
-            _plot_state_partition_1d(
+            plot_state_partition_1d(
                 X,
                 labels,
                 title="Training data colored by partition component",
@@ -1163,9 +950,4 @@ def main(config_path: Path | None = None) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 2:
-        raise SystemExit("usage: build_multiple_linear_models.py [CONFIG.json]")
-    cfg_path = Path(sys.argv[1]).resolve() if len(sys.argv) == 2 else DEFAULT_CONFIG_PATH
-    if not cfg_path.is_file():
-        raise SystemExit(f"Config not found: {cfg_path}")
-    main(cfg_path)
+    main(config_path_from_argv("build_multiple_linear_models.py", DEFAULT_CONFIG_PATH))

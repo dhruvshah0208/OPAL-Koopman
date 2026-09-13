@@ -6,8 +6,8 @@ Simulates trajectories (``num_traj`` × ``traj_length``), stores ``trajectories`
 snapshot pairs ``X`` / ``Y``, and optional RBF centers ``centers_global`` (K-means or random
 subsample, same as ``build_classifier.py``).
 
-Run: ``python generate_data.py`` (uses the module defaults below) or
-``python generate_data.py path/to/config.json`` (JSON keys override those defaults).
+Run: ``python scripts/generate_data.py`` (uses the module defaults below) or
+``python scripts/generate_data.py path/to/config.json`` (JSON keys override those defaults).
 
 Recognized JSON keys: data_subfolder, system_name, file_name, num_traj, traj_length,
 cut_initial_steps (optional, default 0), initial_conditions (optional list of state vectors),
@@ -36,15 +36,12 @@ DEFAULT_DATASET = {"num_traj": 400, "traj_length": 500}
 DEFAULT_N_GLOBAL_CENTERS = 500
 DEFAULT_RANDOM_CENTER_SEED = 42
 
-_DATA_DIR = Path(__file__).resolve().parent
-_ROOT_DIR = _DATA_DIR.parent
-_SRC_DIR = _ROOT_DIR / "src_deep_koopman"
-for _path in (_ROOT_DIR, _SRC_DIR):
-    if str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root
+
+from omega_partition.paths import DATA_DIR as _DATA_DIR  # noqa: E402
 
 from src_deep_koopman.dynamical_systems import SystemsAutonomous  # noqa: E402
-from src_basin_classification import select_rbf_centers  # noqa: E402
+from omega_partition.dictionary import select_rbf_centers  # noqa: E402
 
 
 def _state_label(system_name: str, state_idx: int) -> str:

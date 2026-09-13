@@ -1,3 +1,8 @@
+"""
+LEGACY: earlier single-eigenfunction basin classifier (not the paper pipeline).
+Kept for reference; the paper uses scripts/build_partition.py instead.
+"""
+
 import json
 import sys
 import time
@@ -5,39 +10,23 @@ from pathlib import Path
 
 import numpy as np
 
-_ROOT = Path(__file__).resolve().parent
-_KOOPMAN_ROOT = _ROOT.parent
-_SRC_DEEP_KOOPMAN = _ROOT / "src_deep_koopman"
-_PRUNING_ROOT = _KOOPMAN_ROOT / "MPV-SPV-pruning-code"
-for _path in (_ROOT, _SRC_DEEP_KOOPMAN, _PRUNING_ROOT):
-    if _path.is_dir() and str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # project root
 
+from src.basis_functions import CombinedDictionary, PolynomialBasis, RadialBasis  # noqa: E402
 from src.pruning_algorithms import MPV_SPV_rank_one  # noqa: E402
 
-try:
-    from src_deep_koopman.basis_functions import (  # noqa: E402
-        CombinedDictionary,
-        PolynomialBasis,
-        RadialBasis,
-    )
+from omega_partition.paths import PROJECT_ROOT  # noqa: E402
 
-    def _build_dictionary(n, centers_global, gamma, d_poly):
-        Phi_RBF = RadialBasis(n, centers=centers_global, gamma=gamma)
-        if d_poly == -1:
-            return Phi_RBF
-        poly = PolynomialBasis(n=n, d=d_poly)
-        return CombinedDictionary(Phi_RBF, poly)
+_ROOT = PROJECT_ROOT
 
-except ImportError:
-    from src.basis_functions import CombinedDictionary, PolynomialBasis, RadialBasis  # noqa: E402
 
-    def _build_dictionary(n, centers_global, gamma, d_poly):
-        Phi_RBF = RadialBasis(n, centers=centers_global, gamma=gamma)
-        if d_poly == -1:
-            return Phi_RBF
-        poly = PolynomialBasis(n=n, d=d_poly)
-        return CombinedDictionary(poly, Phi_RBF)
+def _build_dictionary(n, centers_global, gamma, d_poly):
+    Phi_RBF = RadialBasis(n, centers=centers_global, gamma=gamma)
+    if d_poly == -1:
+        return Phi_RBF
+    poly = PolynomialBasis(n=n, d=d_poly)
+    return CombinedDictionary(poly, Phi_RBF)
+
 
 DEFAULT_CONFIG_PATH = _ROOT / "configs/duffing/run_pruning.json"
 

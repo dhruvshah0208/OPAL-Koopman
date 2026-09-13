@@ -6,43 +6,34 @@ semantic class. Validation accuracy is measured by whether each snapshot lands
 in the same partition as its class anchor.
 
 Run:
-    python validation/validate_partition.py
-    python validation/validate_partition.py configs/duffing/validate_partition.json
+    python scripts/validate_partition.py configs/<system>/validate_partition.json
 """
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 from typing import Any
 
 import numpy as np
 
-_VALIDATION_DIR = Path(__file__).resolve().parent
-_ROOT = _VALIDATION_DIR.parent
-_KOOPMAN_ROOT = _ROOT.parent
-_SRC_DIR = _ROOT / "src_deep_koopman"
-_PRUNING_ROOT = _KOOPMAN_ROOT / "MPV-SPV-pruning-code"
-for _path in (_ROOT, _SRC_DIR, _PRUNING_ROOT):
-    if _path.is_dir() and str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root
 
-from src_basin_classification import load_partition_inference  # noqa: E402
-
-if str(_VALIDATION_DIR) not in sys.path:
-    sys.path.insert(0, str(_VALIDATION_DIR))
-from partition_classification import (  # noqa: E402
+from omega_partition.anchors import (  # noqa: E402
     apply_anchor_config,
     classify_with_anchors,
     print_anchor_assignments,
     print_classification_table,
-    resolve_path,
 )
+from omega_partition.config import config_path_from_argv, load_json_config  # noqa: E402
+from omega_partition.partition import load_partition_inference  # noqa: E402
+from omega_partition.paths import PROJECT_ROOT, resolve  # noqa: E402
+
+DEFAULT_CONFIG_PATH = PROJECT_ROOT / "configs/duffing/validate_partition.json"
 
 _DEFAULTS = {
-    "partition_path": _ROOT / "data/duffing/partition_output.npz",
-    "validation_data_path": _ROOT / "data/duffing/duffing_validation_data.npz",
+    "partition_path": PROJECT_ROOT / "data/duffing/partition_output.npz",
+    "validation_data_path": PROJECT_ROOT / "data/duffing/duffing_validation_data.npz",
     "target_equilibria": [[-1.0, 0.0], [1.0, 0.0]],
     "target_data_paths": None,
     "exclude_dropped_predictions": True,
@@ -54,11 +45,7 @@ def _settings(config_path: Path | None) -> dict[str, Any]:
     if config_path is None:
         return s
 
-    with open(config_path) as f:
-        raw = json.load(f)
-    if not isinstance(raw, dict):
-        raise ValueError("Config must be a JSON object.")
-
+    raw = load_json_config(config_path)
     for key in _DEFAULTS:
         if key in raw:
             s[key] = raw[key]
@@ -86,8 +73,8 @@ def _load_validation_data(path: Path) -> tuple[np.ndarray, np.ndarray]:
 
 def main(config_path: Path | None = None) -> None:
     cfg = _settings(config_path)
-    partition_path = resolve_path(cfg["partition_path"])
-    validation_data_path = resolve_path(cfg["validation_data_path"])
+    partition_path = resolve(cfg["partition_path"])
+    validation_data_path = resolve(cfg["validation_data_path"])
 
     if not partition_path.is_file():
         raise FileNotFoundError(f"Partition archive not found: {partition_path}")
@@ -109,9 +96,4 @@ def main(config_path: Path | None = None) -> None:
 
 
 if __name__ == "__main__":
-    if len(sys.argv) > 2:
-        raise SystemExit("usage: validate_partition.py [CONFIG.json]")
-    cfg = Path(sys.argv[1]).resolve() if len(sys.argv) == 2 else None
-    if cfg is not None and not cfg.is_file():
-        raise SystemExit(f"Config not found: {cfg}")
-    main(cfg)
+    main(config_path_from_argv("validate_partition.py", DEFAULT_CONFIG_PATH))

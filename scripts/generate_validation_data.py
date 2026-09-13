@@ -2,8 +2,8 @@
 Generate trajectory-level validation labels from equilibrium or limit-cycle proximity.
 
 Run:
-    python data/generate_validation_data.py
-    python data/generate_validation_data.py path/to/config.json
+    python scripts/generate_validation_data.py
+    python scripts/generate_validation_data.py path/to/config.json
 
 Each trajectory is simulated for the configured horizon, then labeled by the
 nearest target equilibrium or limit-cycle reference trajectory to its terminal state;
@@ -33,12 +33,9 @@ FILE_NAME = "duffing_validation_data.npz"
 DEFAULT_DATASET = {"num_traj": 200, "traj_length": 101}
 DEFAULT_TARGET_EQUILIBRIA = [[-1.0, 0.0], [1.0, 0.0]]
 
-_DATA_DIR = Path(__file__).resolve().parent
-_ROOT_DIR = _DATA_DIR.parent
-_SRC_DIR = _ROOT_DIR / "src_deep_koopman"
-for _path in (_ROOT_DIR, _SRC_DIR):
-    if str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root
+
+from omega_partition.paths import DATA_DIR as _DATA_DIR, PROJECT_ROOT as _ROOT_DIR  # noqa: E402
 
 from src_deep_koopman.dynamical_systems import SystemsAutonomous  # noqa: E402
 

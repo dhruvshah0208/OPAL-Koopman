@@ -1,9 +1,8 @@
 """
 Validate saved Koopman classifiers on labeled validation snapshots.
 
-Run:
-    python validation/validate_classifier.py
-    python validation/validate_classifier.py validation/validate_classifier.json
+LEGACY (not the paper pipeline). Run:
+    python scripts/legacy/validate_classifier.py configs/<system>/validate_classifier.json
 """
 
 from __future__ import annotations
@@ -16,14 +15,13 @@ from typing import Any
 
 import numpy as np
 
-_VALIDATION_DIR = Path(__file__).resolve().parent
-_ROOT = _VALIDATION_DIR.parent
-_SRC_DIR = _ROOT / "src_deep_koopman"
-for _path in (_ROOT, _SRC_DIR):
-    if str(_path) not in sys.path:
-        sys.path.insert(0, str(_path))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))  # project root
 
-from src_basin_classification import apply_eigenvector, load_dictionary_from_classifiers  # noqa: E402
+from omega_partition.dictionary import load_dictionary_from_classifiers  # noqa: E402
+from omega_partition.legacy import apply_eigenvector  # noqa: E402
+from omega_partition.paths import PROJECT_ROOT  # noqa: E402
+
+_ROOT = PROJECT_ROOT
 
 _DEFAULTS = {
     "classifiers_path": _ROOT / "data/duffing/classifiers.npz",
