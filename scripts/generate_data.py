@@ -4,7 +4,7 @@ Generate snapshot data from a dynamical system and save .npz + metadata under da
 
 Simulates trajectories (``num_traj`` × ``traj_length``), stores ``trajectories``, one-step
 snapshot pairs ``X`` / ``Y``, and optional RBF centers ``centers_global`` (K-means or random
-subsample, same as ``build_classifier.py``).
+subsample; see ``src_omega_partition.dictionary.select_rbf_centers``).
 
 Run: ``python scripts/generate_data.py`` (uses the module defaults below) or
 ``python scripts/generate_data.py path/to/config.json`` (JSON keys override those defaults).
@@ -38,10 +38,10 @@ DEFAULT_RANDOM_CENTER_SEED = 42
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root
 
-from omega_partition.paths import DATA_DIR as _DATA_DIR  # noqa: E402
+from src_omega_partition.paths import DATA_DIR as _DATA_DIR  
 
-from src_deep_koopman.dynamical_systems import SystemsAutonomous  # noqa: E402
-from omega_partition.dictionary import select_rbf_centers  # noqa: E402
+from src_omega_partition.dynamical_systems import SystemsAutonomous  
+from src_omega_partition.dictionary import select_rbf_centers  
 
 
 def _state_label(system_name: str, state_idx: int) -> str:

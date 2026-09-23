@@ -1,6 +1,11 @@
-# Core dependencies (the macbook_env conda environment already provides these).
-# `src` and `src_deep_koopman` are external editable installs; see README.md.
+# Core dependencies.
+# The simulator and the EDMD dictionary classes are vendored in src_omega_partition/,
+# so no external research package is needed. See README.md.
 numpy>=2.0
 scipy>=1.13
 scikit-learn>=1.5
 matplotlib>=3.8
+
+# Notebooks
+pandas>=2.0
+jupyterlab

@@ -20,7 +20,7 @@ from matplotlib.patches import Circle, Ellipse, FancyArrowPatch
 from matplotlib.path import Path as MplPath
 
 _ROOT = Path(__file__).resolve().parents[1]  # project root
-OUTPUT_PATH = _ROOT / "docs" / "figures" / "algorithm" / "merge_graph_schematic.png"
+OUTPUT_PATH = _ROOT / "figures" / "paper" / "algorithm" / "merge_graph_schematic.png"
 
 # Layout and typography — edit before regenerating
 FIGSIZE = (7.0, 4.2)

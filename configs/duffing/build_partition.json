@@ -6,7 +6,7 @@
     "system_name": "Name passed to SystemsAutonomous for optional plotting bounds.",
     "gamma": "Bandwidth parameter for Gaussian RBFs in the dictionary.",
     "d_poly": "Polynomial degree in the dictionary; -1 means RBF-only.",
-    "epsilon": "Eigenvalue cutoff for approximate invariant modes (repo convention: keep modes with lambda < epsilon). The paper writes lambda <= epsilon^2 for the invariance ratio; here epsilon is the GEP eigenvalue threshold, consistent with build_classifier.py.",
+    "epsilon": "Eigenvalue cutoff for approximate invariant modes (repo convention: keep modes with lambda < epsilon). The paper writes lambda <= epsilon^2 for the invariance ratio; here epsilon is the GEP eigenvalue threshold.",
     "reg": "Tikhonov regularization added to the GEP Gram matrix N.",
     "max_invariant_modes": "Maximum number of invariant modes to retain after epsilon filtering.",
     "skip_first_mode": "If true, drop the smallest-eigenvalue mode (often near-constant).",
@@ -14,6 +14,7 @@
     "tau_occ": "Minimum empirical cell weight |C_alpha|/N to retain a fine cell.",
     "tau_tr": "Transition merge threshold on max(p_ab, p_ba).",
     "tau_val": "Value-space merge threshold on ||m_alpha - m_beta||_2 in embedding space.",
+    "tau_robust": "Robustness margin applied after all merging: points whose relative distance to the nearest final-partition boundary (per invariant coordinate, distance to the closest label-changing cluster boundary divided by the merged region length, minimised over coordinates) is below tau_robust are dropped (label -1). Stored in partition_output.npz and applied identically at inference (validate_partition.py, build_multiple_linear_models.py). 0 disables it.",
     "random_state": "Random seed for per-coordinate KMeans clustering.",
     "show_plots": "If true and state dimension is 2, show embedding, state-space, and transition diagnostics."
   },
@@ -26,10 +27,11 @@
   "reg": 1e-8,
   "max_invariant_modes": 2,
   "skip_first_mode": false,
-  "scalar_cluster_count": [1, 4],
+  "scalar_cluster_count": [2, 4],
   "tau_occ": 0.002,
   "tau_tr": 0.005,
-  "tau_val": 0.0,
+  "tau_val": 0.000,
+  "tau_robust": 0.05,
   "random_state": 42,
   "show_plots": true
 }

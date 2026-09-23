@@ -12,12 +12,3 @@ __pycache__/
 # Regenerable dataset diagnostic plots
 data/dataset_plots/
 
-# LaTeX build artifacts
-docs/*.aux
-docs/*.bbl
-docs/*.blg
-docs/*.fdb_latexmk
-docs/*.fls
-docs/*.log
-docs/*.out
-docs/*.synctex.gz

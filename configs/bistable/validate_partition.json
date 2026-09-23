@@ -5,7 +5,8 @@
     "validation_data_path": "Path to labeled validation .npz from generate_validation_data.py (must contain X and labels).",
     "target_equilibria": "One inline state vector per class, e.g. [[x1], [x1]]. Mutually exclusive with target_data_paths.",
     "target_data_paths": "List of .npz paths, one per class. The final snapshot of the first trajectory (or last row of X) is used as the class anchor. Mutually exclusive with target_equilibria.",
-    "exclude_dropped_predictions": "Reserved for future use; dropped and unmapped predictions are already excluded from accuracy totals."
+    "exclude_dropped_predictions": "Reserved for future use; dropped and unmapped predictions are already excluded from accuracy totals.",
+    "show_plots": "If true and state dimension is 1 or 2, scatter the validation states highlighting misclassified and dropped points."
   },
   "partition_path": "data/bistable/partition_output.npz",
   "validation_data_path": "data/bistable/bistable_validation_data.npz",
@@ -13,5 +14,6 @@
     [-1.0],
     [1.0]
   ],
-  "exclude_dropped_predictions": true
+  "exclude_dropped_predictions": true,
+  "show_plots": true
 }

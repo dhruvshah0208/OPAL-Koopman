@@ -1,74 +1,221 @@
-# Learning Omega-Limit Partitions from Approximate Koopman Invariants
+# Regional-EDMD
 
-Code for the paper in [`docs/acc_27_multiple-linear-models.tex`](docs/acc_27_multiple-linear-models.tex).
-Given snapshot pairs of a nonlinear system with several attractors, the pipeline
+Code and experiments for the paper
 
-1. solves a generalized eigenvalue problem for *approximate Koopman invariant observables*,
-2. clusters the data in those coordinates and merges the fine cells into an approximate
-   **omega-limit partition** (Algorithm 1), and
-3. fits one local EDMD model per partition cell and evaluates switched long-horizon prediction.
+> **Learning Omega-Limit Partitions from Approximate Koopman Invariants**
 
-## Layout
+Given snapshot pairs `(x_t, x_{t+1})` of a nonlinear system with several attractors, the
+method
+
+1. solves a generalized eigenvalue problem over an EDMD dictionary for
+   **approximate Koopman-invariant observables** (functions that are nearly constant along
+   trajectories),
+2. clusters the data in those coordinates into fine cells and merges them, first by empirical
+   transition probabilities and then by value-space proximity, into an approximate
+   **omega-limit partition** of the state space (Algorithm 1 in the paper), and
+3. fits one **local EDMD model per partition cell** and uses the partition to switch between
+   them, comparing long-horizon prediction against a single vanilla EDMD model fit on the
+   same data.
+
+Two examples from the paper are included: the **Duffing oscillator** (two stable equilibria)
+and a planar system with **bistable oscillations** (two stable limit cycles), plus a 1-D
+bistable toy used for sanity checks.
+
+<p align="center">
+  <img src="plotting/duffing_rollout_phase_portrait.png" width="48%" alt="Duffing: switched vs vanilla EDMD rollouts">
+  <img src="plotting/bistable_oscillations_rollout_phase_portrait.png" width="48%" alt="Bistable oscillations: switched vs vanilla EDMD rollouts">
+</p>
+
+## Contents
+
+- [Repository layout](#repository-layout)
+- [Installation](#installation)
+- [Start here: the notebooks](#start-here-the-notebooks)
+- [Running the pipeline from the command line](#running-the-pipeline-from-the-command-line)
+- [Regenerating the paper figures and tables](#regenerating-the-paper-figures-and-tables)
+- [Configuration reference](#configuration-reference)
+- [Implementation notes](#implementation-notes)
+- [Citation](#citation)
+
+## Repository layout
 
 ```
-omega_partition/     library (invariants, partition, switched models, anchors, plotting)
-scripts/             one script per pipeline stage; each takes one JSON config
-scripts/legacy/      earlier single-eigenfunction classifier + pruning (not used in the paper)
-configs/<system>/    JSON configs for duffing, bistable_oscillations, bistable (1-D toy)
-data/<system>/       datasets and pipeline outputs (*.npz are git-ignored; *.meta.json tracked)
-figures/             figures written by the scripts
-docs/                paper source, bibliography, paper figures
-notebooks/           exploratory notebooks (use the external `src` package directly)
+src_omega_partition/    library: invariants, partition (Algorithm 1), switched EDMD models,
+                        anchor-based labels, plotting, plus the vendored simulator
+                        (dynamical_systems.py) and dictionary classes (basis_functions.py)
+scripts/                one script per pipeline stage; each takes a single JSON config
+configs/<system>/       JSON configs for duffing, bistable_oscillations and bistable (1-D toy)
+data/<system>/          datasets (*.npz) with tracked *.meta.json provenance, pipeline outputs
+data/paper_plots/       arrays cached by notebooks/paper_plots.ipynb
+notebooks/              walkthrough notebooks (the main entry point, see below)
+plotting/               paper-figure scripts + results table, driven by data/paper_plots/
+figures/                figures written by the pipeline scripts (paper-styled ones in figures/paper/)
 ```
 
-## Setup
+## Installation
+
+Python ≥ 3.11 with numpy, scipy, scikit-learn, matplotlib (and pandas / jupyter for the
+notebooks):
 
 ```bash
-conda activate macbook_env
+git clone <this repository>
+cd Regional-EDMD
+pip install -r requirements.txt
 ```
 
-The library needs two packages that are editable-installed in that environment and live
-outside this repository: `src` (basis functions, from `../MPV-SPV-pruning-code`) and
-`src_deep_koopman` (`SystemsAutonomous` simulator, from
-`~/Documents/PhD-code-files/Benchmarking_Deep_Koopman`). Everything else is numpy / scipy /
-scikit-learn / matplotlib. Run all commands from the repository root; set
-`MPLBACKEND=Agg` when there is no display.
+Nothing needs to be installed from the repository itself: the scripts and notebooks add the
+project root to `sys.path` so that `src_omega_partition` imports directly. Run everything from
+the repository root, and set `MPLBACKEND=Agg` when there is no display.
 
-## Running the pipeline
+> **External modules.** The dynamical-system simulator (`SystemsAutonomous`) and the EDMD
+> dictionary classes (`PolynomialBasis`, `RadialBasis`, `ThinPlateSpline`,
+> `CombinedDictionary`) originate from two separate research codebases and are vendored
+> into [`src_omega_partition/`](src_omega_partition/) (`dynamical_systems.py`,
+> `basis_functions.py`); each file documents the exact interface the rest of the code uses.
+> `duffing_eqn`, `bistable` and the dictionary classes are copied verbatim, and
+> `bistable_oscillations` is defined alongside them, so neither original codebase is needed.
 
-Replace `<system>` with `duffing` or `bistable_oscillations` (paper examples) or `bistable`.
-The datasets under `data/` are already generated, so you can start at step 3.
+The datasets used in the paper are shipped in `data/<system>/` (`*_data.npz`,
+`*_validation_data.npz`, `*_target_data*.npz`), so the simulator is only needed to regenerate
+them or to draw "true" trajectories from custom initial conditions; every other stage runs
+from the stored files.
+
+## Start here: the notebooks
+
+The notebooks are the primary record of the experiments. They use the `src_omega_partition`
+library and the pipeline scripts' functions directly, read only the committed datasets, and
+write nothing to `data/` (except `paper_plots.ipynb`, which caches its arrays in
+`data/paper_plots/`). Run them from the repository root, e.g.
+`jupyter lab notebooks/duffing_walkthrough.ipynb`.
+
+| Notebook | What it does |
+|---|---|
+| [`duffing_walkthrough.ipynb`](notebooks/duffing_walkthrough.ipynb) | Step-by-step construction of the omega-limit partition for the Duffing oscillator. Section by section it introduces one ingredient of Algorithm 1, sweeps its parameter on a grid, plots the effect, and then fixes the paper value: dictionary and approximate invariants (`gamma`, `epsilon`), scalar clustering into fine cells (`scalar_cluster_count`), occupancy filter (`tau_occ`), transition-based merging (`tau_tr`), value-based merging (`tau_val`), the final partition, validation against labeled trajectories and the robustness margin (`tau_robust`). The last two sections fit the switched local EDMD models and the vanilla EDMD baseline on the final partition, and sweep the EDMD dictionary (number of RBF centers, `gamma`, polynomial degree) on one initial condition per attractor. |
+| [`bistable_oscillations_walkthrough.ipynb`](notebooks/bistable_oscillations_walkthrough.ipynb) | The same walkthrough for the bistable-oscillations system, including the case where the occupancy filter is essential. |
+| [`paper_plots.ipynb`](notebooks/paper_plots.ipynb) | Produces every figure and number in the paper end to end for both systems, with the parameters in `configs/<system>/`: partition, validation phase portrait (correct / misclassified / dropped points), two-initial-condition rollouts (time series and phase plane) and gated rollout-error curves, switched vs vanilla EDMD. Caches all arrays in `data/paper_plots/<system>/*.npz` for the `plotting/` scripts. |
+
+Supplementary write-ups: [`plotting/results_table.md`](plotting/results_table.md)
+(experimental setup, parameters and result tables, auto-generated),
+[`plotting/tau_robust.md`](plotting/tau_robust.md) (the robustness margin) and
+[`plotting/tau_occ_sensitivity.md`](plotting/tau_occ_sensitivity.md) (sensitivity to the
+occupancy threshold).
+
+## Running the pipeline from the command line
+
+Each stage is a script in `scripts/` that takes one JSON config from `configs/<system>/`.
+Replace `<system>` with `duffing` or `bistable_oscillations` (paper examples) or `bistable`
+(1-D toy). Because the datasets are shipped, you can start at step 3.
 
 ```bash
-# 1. training snapshots + K-means RBF centers        -> data/<system>/<system>_data.npz
-python scripts/generate_data.py            configs/duffing/generate_duffing_data.json
-# 2. labeled validation trajectories                 -> data/<system>/<system>_validation_data.npz
+# 1. training snapshots + k-means RBF center pool        -> data/<system>/<system>_data.npz
+python scripts/generate_data.py            configs/<system>/generate_data.json
+# 2. labeled validation trajectories                     -> data/<system>/<system>_validation_data.npz
 python scripts/generate_validation_data.py configs/<system>/generate_validation_data.json
-# 3. approximate omega-limit partition (Algorithm 1) -> data/<system>/partition_output.npz
+
+# 3. approximate omega-limit partition (Algorithm 1)     -> data/<system>/partition_output.npz
 python scripts/build_partition.py          configs/<system>/build_partition.json
-# 4. partition accuracy against anchor states
+# 4. partition accuracy against anchor states (equilibria or reference limit cycles)
 python scripts/validate_partition.py       configs/<system>/validate_partition.json
-# 5. local EDMD model per cell, rollout metrics, figures -> data/<system>/switched_models.npz, figures/<system>/
+# 5. local EDMD model per cell + vanilla EDMD baseline; one-step and rollout metrics;
+#    figures partition_scatter / phase_trajectories / phase_portrait / rollout_errors
+#    -> data/<system>/{switched_models,vanilla_edmd_model}.npz, figures/<system>/
 python scripts/build_multiple_linear_models.py configs/<system>/build_multiple_linear_models.json
-# 6. paper-styled figures from the saved plot data  -> docs/figures/<system>/
-python scripts/generate_plots.py
-python scripts/generate_merge_diagram.py           # Fig. 1 schematic
+
+# 6. paper-styled versions of the step-5 figures        -> figures/paper/<system>/
+python scripts/generate_plots.py           # both paper systems; or pass one config / plot-data .npz
+python scripts/generate_merge_diagram.py   # Fig. 1 schematic   -> figures/paper/algorithm/
 ```
 
-For `bistable_oscillations` the data-generation configs are `generate_data.json`,
-`generate_target_data{1,2}.json` (reference limit cycles used as anchors) and
-`generate_validation_data.json`. Step 5 prints the numbers in Table I of the paper
-(classification accuracy and mean relative rollout error at selected time steps).
+Step 5 prints the numbers reported in Table I of the paper (classification accuracy and mean
+relative rollout error at selected time steps) for both the switched and the vanilla model.
+For `bistable_oscillations`, step 2 needs the two reference limit cycles used as class anchors;
+generate them before the validation data with
 
-Every config has an `"explanation"` block documenting its keys; paths inside configs are
-relative to the repository root.
+```bash
+python scripts/generate_data.py configs/bistable_oscillations/generate_target_data1.json
+python scripts/generate_data.py configs/bistable_oscillations/generate_target_data2.json
+```
 
-## Notes
+With no argument, `generate_plots.py` redraws the two paper systems; for the 1-D toy run
+`python scripts/generate_plots.py data/bistable/multiple_linear_models_plot_data.npz`.
 
-- The first approximate-invariant mode is the constant function whenever the dictionary
-  contains the constant (`d_poly >= 0`). Its `scalar_cluster_count` entry must be `1`
-  (splitting a constant clusters floating-point noise and is not reproducible).
-- Gaussian RBFs are `exp(-gamma * ||x - c||^2)`: larger `gamma` means narrower bumps.
-- `bistable_oscillations` is not registered in the installed `src_deep_koopman`, so its
-  datasets cannot currently be regenerated; the saved `.npz` files are sufficient for
-  steps 3–6 (phase plots then fall back to sampled validation trajectories).
+## Regenerating the paper figures and tables
+
+Two routes produce paper figures:
+
+- **Notebook route (used for the paper).** Run `notebooks/paper_plots.ipynb`, then
+
+  ```bash
+  python plotting/plot_all.py                 # all figures for both systems -> plotting/
+  python plotting/plot_all.py duffing --show  # one system, interactive
+  python plotting/make_results_table.py       # -> plotting/results_table.md
+  ```
+
+  Each `plotting/plot_*.py` reads one cached `data/paper_plots/<system>/<name>.npz`, so
+  figure styling can be changed without re-running the notebook.
+
+- **Script route.** `scripts/build_multiple_linear_models.py` saves its plot arrays to
+  `data/<system>/multiple_linear_models_plot_data.npz`; `scripts/generate_plots.py` redraws
+  them into `figures/paper/<system>/`.
+
+## Configuration reference
+
+Every config carries an `"explanation"` block documenting each key (ignored by the scripts).
+Paths inside configs are relative to the repository root. The parameters of Algorithm 1 live
+in `build_partition.json`:
+
+| Key | Role |
+|---|---|
+| `gamma`, `d_poly` | Dictionary for the invariants: Gaussian RBF precision (`exp(-gamma‖x−c‖²)`) on the k-means center pool, plus polynomials up to degree `d_poly` (`-1` = RBF only). |
+| `epsilon`, `reg`, `max_invariant_modes` | Keep generalized eigenvectors with eigenvalue below `epsilon` (at most `max_invariant_modes`); `reg` is Tikhonov regularization of the Gram matrix. |
+| `scalar_cluster_count` | k-means clusters per invariant coordinate (int or list). The first mode is the constant function whenever the dictionary contains it, so its entry must be `1`. |
+| `tau_occ` | Minimum empirical weight of a fine cell; smaller cells are dropped. |
+| `tau_tr` | Merge two cells when the empirical transition probability between them exceeds `tau_tr`. |
+| `tau_val` | Merge two cells when their centroids in invariant space are closer than `tau_val`. |
+| `tau_robust` | Post-merge margin: points within `tau_robust` (relative to the merged region length, per coordinate) of a label-changing boundary are left unlabeled. Stored with the partition and applied at inference. |
+
+The EDMD dictionary for the local models is set separately in
+`build_multiple_linear_models.json` (`edmd_gamma`, `edmd_d_poly`, `number_centers_edmd`;
+`0` centers gives a polynomial-only dictionary). The paper values (`1.0`, `6`, `100`) are the
+best of the sweeps in the walkthrough notebooks. `compare_vanilla_edmd` toggles the baseline
+(by default with the same dictionary; `vanilla_*` keys override it), `ICs_phase_plot` fixes
+the initial conditions of the phase plots, and `run_gated_evaluation = false` skips the slow
+validation-set evaluation while tuning.
+
+## Implementation notes
+
+- **Rollouts** lift the initial state once and propagate linearly in the lifted space
+  (`z_{t+1} = z_t K`, decoded as `x_t = z_t R` for storage only). Re-lifting the decoded state
+  every step would turn the model into a chained one-step predictor with far smaller errors;
+  both the switched model and the vanilla baseline use the lift-once rollout.
+- **Local vs vanilla fits.** The vanilla model is fitted on all snapshot pairs; each local
+  model only on the pairs its cell keeps (occupancy- and `tau_robust`-dropped pairs excluded).
+  Both paper configs fit the local models on the validation set; the partition itself is fit
+  on the training set.
+- **Class labels** for validation come from anchors: the equilibrium (`target_equilibria`)
+  or reference trajectory (`target_data_paths`) closest to a trajectory's final state.
+- **`bistable_oscillations`** is simulated in `src_omega_partition/dynamical_systems.py`
+  by the closed-form flow map of `r' = (r−2) − (r−2)³, θ' = 1` with `dt = 0.05`, which
+  reproduces the stored datasets to ~1e-7 (an Euler step would drift by ~0.7).
+- **RBF convention** is `exp(-gamma ‖x − c‖²)` (gamma is a precision); larger `gamma` means
+  narrower bumps.
+- The 1-D `bistable` toy has several numerically degenerate invariant modes; its intermediate
+  fine-cell counts vary with floating-point noise, the final partition (2 cells, ~99.8%) does
+  not.
+
+## Citation
+
+If you use this code, please cite the paper:
+
+```bibtex
+@inproceedings{shah2027omegalimit,
+  title     = {Learning Omega-Limit Partitions from Approximate Koopman Invariants},
+  author    = {Shah, Dhruv and TODO},
+  booktitle = {TODO},
+  year      = {2027}
+}
+```
+
+## License
+
+TODO

@@ -17,16 +17,21 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root
 
-from omega_partition.config import config_path_from_argv, load_json_config  # noqa: E402
-from omega_partition.dictionary import build_rbf_polynomial_dictionary  # noqa: E402
-from omega_partition.invariants import (  # noqa: E402
+from src_omega_partition.config import config_path_from_argv, load_json_config  # noqa: E402
+from src_omega_partition.dictionary import build_rbf_polynomial_dictionary  # noqa: E402
+from src_omega_partition.invariants import (  # noqa: E402
     compute_approximate_invariant_observables,
     evaluate_invariant_embedding,
     select_invariant_modes,
 )
-from omega_partition.partition import fit_graph_merged_partition  # noqa: E402
-from omega_partition.paths import PROJECT_ROOT, resolve  # noqa: E402
-from omega_partition.plotting import (  # noqa: E402
+from src_omega_partition.partition import (  # noqa: E402
+    _stack_cluster_centers,
+    build_partition_inference,
+    fit_graph_merged_partition,
+)
+from src_omega_partition.paths import PROJECT_ROOT, resolve  # noqa: E402
+from src_omega_partition.plotting import (  # noqa: E402
+    plot_cell_weights,
     plot_inter_centroid_distances,
     plot_invariant_embedding_2d,
     plot_invariant_scalar_histograms,
@@ -50,12 +55,13 @@ _DEFAULTS = {
     "tau_occ": 0.002,
     "tau_tr": 0.05,
     "tau_val": 0.1,
+    "tau_robust": 0.0,
     "random_state": 42,
     "show_plots": True,
 }
 
 
-def _settings(config_path: Path | None) -> dict:
+def load_settings(config_path: Path | None) -> dict:
     s = dict(_DEFAULTS)
     if config_path is None:
         return s
@@ -79,21 +85,10 @@ def _settings(config_path: Path | None) -> dict:
     s["tau_occ"] = float(s["tau_occ"])
     s["tau_tr"] = float(s["tau_tr"])
     s["tau_val"] = float(s["tau_val"])
+    s["tau_robust"] = float(s["tau_robust"])
     s["random_state"] = int(s["random_state"])
     s["show_plots"] = bool(s["show_plots"])
     return s
-
-
-def _stack_cluster_centers(cluster_models) -> np.ndarray:
-    """Stack KMeans cluster centers as (r, k_max, 1)."""
-    centers = []
-    for model in cluster_models:
-        centers.append(np.asarray(model.cluster_centers_, dtype=np.float64))
-    max_k = max(center.shape[0] for center in centers)
-    stacked = np.full((len(centers), max_k, 1), np.nan, dtype=np.float64)
-    for j, center in enumerate(centers):
-        stacked[j, : center.shape[0], 0] = center[:, 0]
-    return stacked
 
 
 def _print_diagnostics(result: dict, n_samples: int, cfg: dict) -> None:
@@ -119,11 +114,15 @@ def _print_diagnostics(result: dict, n_samples: int, cfg: dict) -> None:
     tau_occ = float(cfg["tau_occ"])
     tau_tr = float(cfg["tau_tr"])
     tau_val = float(cfg["tau_val"])
+    tau_robust = float(cfg["tau_robust"])
     scalar_cluster_count = cfg["scalar_cluster_count"]
     n_edges_tr = len(result["merge_edges_transition"])
     n_edges_val = len(result["merge_edges_value"])
 
-    print(f"Partition thresholds: tau_occ={tau_occ}, tau_tr={tau_tr}, tau_val={tau_val}")
+    print(
+        f"Partition thresholds: tau_occ={tau_occ}, tau_tr={tau_tr}, "
+        f"tau_val={tau_val}, tau_robust={tau_robust}"
+    )
     print(f"Scalar cluster count: {scalar_cluster_count}")
     print(f"Occupied fine cells (before occupancy filter): {n_occupied}")
     print(f"Retained fine cells (weight >= tau_occ={tau_occ}): {n_retained}")
@@ -158,6 +157,11 @@ def _print_diagnostics(result: dict, n_samples: int, cfg: dict) -> None:
     print(
         f"Retained transition consistency: "
         f"{consistency * 100.0:.2f}% over {retained_total} transitions"
+    )
+    n_robust = int(result["n_robust_dropped_X"])
+    print(
+        f"X points dropped by robustness margin (rel. boundary distance < "
+        f"tau_robust={tau_robust}): {n_robust} ({100.0 * n_robust / n_samples:.2f}%)"
     )
     print(f"Fraction of X points dropped (label = -1): {dropped_frac * 100.0:.2f}%")
     print(f"Total samples: {n_samples}")
@@ -244,6 +248,8 @@ def _save_partition(
         tau_occ=np.float64(cfg["tau_occ"]),
         tau_tr=np.float64(cfg["tau_tr"]),
         tau_val=np.float64(cfg["tau_val"]),
+        tau_robust=np.float64(cfg["tau_robust"]),
+        rel_boundary_dist_X=np.asarray(result["rel_boundary_dist_X"], dtype=np.float64),
         random_state=np.int64(cfg["random_state"]),
         n_occupied_fine_cells=np.int64(result["n_occupied_fine_cells"]),
         n_retained_fine_cells=np.int64(len(retained_cell_ids)),
@@ -253,9 +259,16 @@ def _save_partition(
     print(f"Partition output saved to {output_path}")
 
 
-def main(config_path: Path | None = None) -> None:
-    cfg = _settings(config_path)
+def build_partition_from_config(cfg: dict, *, verbose: bool = True) -> dict:
+    """
+    Run Algorithm 1 as configured by ``cfg`` (see ``load_settings``) without saving.
 
+    Returns a dict with the training data (``X``, ``Y``, ``centers_global``, ``n``),
+    the GEP output (``eigvals_inv``, ``coeffs_inv``, ``F_X``, ``F_Y``), the
+    ``fit_graph_merged_partition`` ``result`` and the ``inference`` dict that
+    ``classify_partition_labels`` / ``classify_with_anchors`` consume (identical to
+    what ``load_partition_inference`` reads back from ``partition_output.npz``).
+    """
     data_path = resolve(cfg["data_path"])
     if not data_path.is_file():
         raise FileNotFoundError(f"Data file not found: {data_path}")
@@ -271,12 +284,14 @@ def main(config_path: Path | None = None) -> None:
     centers_global = data["centers_global"]
     n = X.shape[1]
 
-    print(" Data loaded from ", data_path)
-    print(" Total data points: ", X.shape[0])
-    print(f" RBF centers loaded from file: {centers_global.shape}")
+    if verbose:
+        print(" Data loaded from ", data_path)
+        print(" Total data points: ", X.shape[0])
+        print(f" RBF centers loaded from file: {centers_global.shape}")
 
     Phi = build_rbf_polynomial_dictionary(n, centers_global, cfg["gamma"], cfg["d_poly"])
-    print(f"Number of Dictionary elements = {Phi.s}")
+    if verbose:
+        print(f"Number of Dictionary elements = {Phi.s}")
 
     Phi_X = Phi.evaluate(X)
     Phi_Y = Phi.evaluate(Y)
@@ -291,9 +306,10 @@ def main(config_path: Path | None = None) -> None:
         max_modes=cfg["max_invariant_modes"],
         skip_first_mode=cfg["skip_first_mode"],
     )
-    print(f"Selected invariant modes: {eigvals_inv.size}")
-    print("Selected generalized eigenvalues:")
-    print(eigvals_inv)
+    if verbose:
+        print(f"Selected invariant modes: {eigvals_inv.size}")
+        print("Selected generalized eigenvalues:")
+        print(eigvals_inv)
 
     F_X = evaluate_invariant_embedding(Phi_X, coeffs_inv)
     F_Y = evaluate_invariant_embedding(Phi_Y, coeffs_inv)
@@ -308,7 +324,25 @@ def main(config_path: Path | None = None) -> None:
         tau_tr=cfg["tau_tr"],
         tau_val=cfg["tau_val"],
         random_state=cfg["random_state"],
+        tau_robust=cfg["tau_robust"],
     )
+    inference = build_partition_inference(
+        result, coeffs_inv=coeffs_inv, centers_global=centers_global,
+        gamma=cfg["gamma"], d_poly=cfg["d_poly"], n=n,
+    )
+    return {
+        "X": X, "Y": Y, "centers_global": centers_global, "n": n, "Phi": Phi,
+        "eigvals_inv": eigvals_inv, "coeffs_inv": coeffs_inv, "F_X": F_X, "F_Y": F_Y,
+        "result": result, "inference": inference,
+    }
+
+
+def main(config_path: Path | None = None) -> None:
+    cfg = load_settings(config_path)
+    built = build_partition_from_config(cfg)
+    X, centers_global, n = built["X"], built["centers_global"], built["n"]
+    result, coeffs_inv, eigvals_inv = built["result"], built["coeffs_inv"], built["eigvals_inv"]
+    F_X, F_Y = built["F_X"], built["F_Y"]
 
     _print_diagnostics(result, X.shape[0], cfg)
     _save_partition(
@@ -332,6 +366,7 @@ def main(config_path: Path | None = None) -> None:
             eigvals_inv,
             title="GEP invariant scalar observables",
         )
+        plot_cell_weights(result["cell_weights"], cfg["tau_occ"])
         if n == 2:
             plot_invariant_embedding_2d(
                 F_X,

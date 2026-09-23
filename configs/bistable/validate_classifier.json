@@ -1,6 +1,0 @@
-{
-    "classifiers_path": "data/bistable/classifiers.npz",
-    "validation_data_path": "data/bistable/bistable_validation_data.npz",
-    "allow_label_flip_for_binary": true
-  }
-  

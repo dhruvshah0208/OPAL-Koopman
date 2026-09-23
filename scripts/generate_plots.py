@@ -2,8 +2,12 @@
 Regenerate paper figures for switched local Koopman models from saved plot_data .npz.
 
 Reads arrays written by build_multiple_linear_models.save_plot_data and writes:
-  docs/figures/<system>/multiple_linear_models/partition_scatter.png
-  docs/figures/<system>/multiple_linear_models/phase_trajectories.png
+  figures/paper/<system>/multiple_linear_models/partition_scatter.png
+  figures/paper/<system>/multiple_linear_models/phase_trajectories.png
+  figures/paper/<system>/multiple_linear_models/rollout_errors.png   (if rollout curves were saved)
+
+When the plot data contains a vanilla-EDMD comparison, phase_trajectories.png
+overlays it and rollout_errors.png shows both models.
 
 Usage:
   python scripts/generate_plots.py
@@ -20,11 +24,11 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root
 
-from omega_partition.paths import DOCS_FIGURES_DIR, PROJECT_ROOT, resolve  # noqa: E402
-from omega_partition.plotting import finalize_figure  # noqa: E402
+from src_omega_partition.paths import PAPER_FIGURES_DIR, PROJECT_ROOT, resolve  # noqa: E402
+from src_omega_partition.plotting import finalize_figure  # noqa: E402
 
 _ROOT = PROJECT_ROOT
-_DOCS_FIGURES = DOCS_FIGURES_DIR
+_PAPER_FIGURES = PAPER_FIGURES_DIR
 
 DEFAULT_PLOT_CONFIGS = (
     _ROOT / "configs/duffing/build_multiple_linear_models.json",
@@ -39,9 +43,12 @@ PAPER_TICK_FONT_SIZE = 12
 PAPER_LEGEND_FONT_SIZE = 12
 
 from build_multiple_linear_models import (  # noqa: E402
-    _settings,
+    SWITCHED_LABEL,
+    VANILLA_LABEL,
+    load_settings,
     load_plot_data,
     rollouts_from_arrays,
+    true_trajectory_ylim,
 )
 
 
@@ -129,13 +136,18 @@ def _plot_state_partition_for_paper(
 def _plot_phase_trajectories_for_paper(
     rollouts: list,
     *,
+    vanilla_rollouts: list | None = None,
     save_path: Path | None = None,
     show: bool = False,
     label_font_size: float = PAPER_LABEL_FONT_SIZE,
     tick_font_size: float = PAPER_TICK_FONT_SIZE,
     legend_font_size: float = PAPER_LEGEND_FONT_SIZE,
 ):
-    """Paper-formatted phase trajectories: no figure title or subplot titles."""
+    """Paper-formatted phase trajectories: no figure title or subplot titles.
+
+    ``vanilla_rollouts`` (same true trajectories, vanilla-EDMD predictions) is
+    overlaid when given.
+    """
     import matplotlib.pyplot as plt
 
     if not rollouts:
@@ -146,30 +158,32 @@ def _plot_phase_trajectories_for_paper(
     fig, axes = plt.subplots(n_state, 1, figsize=(8, 3.0 * n_state), squeeze=False)
     t = np.arange(horizon)
 
+    # (rollout list, color, linestyle, alpha, legend label, tuple index of the trajectory)
+    series = [
+        (rollouts, "black", "-", 0.65, "true", 0),
+        (rollouts, "crimson", "--", 0.85, SWITCHED_LABEL, 1),
+    ]
+    if vanilla_rollouts:
+        series.append((vanilla_rollouts, "steelblue", ":", 0.9, VANILLA_LABEL, 1))
+
     for j in range(n_state):
         ax = axes[j, 0]
-        for i, (true_traj, pred_traj, _) in enumerate(rollouts):
-            valid = np.isfinite(pred_traj[:, j])
-            if not np.any(valid):
-                continue
-            t_valid = t[valid]
-            ax.plot(
-                t_valid,
-                true_traj[valid, j],
-                color="black",
-                lw=1.2,
-                alpha=0.65,
-                label="true" if i == 0 else None,
-            )
-            ax.plot(
-                t_valid,
-                pred_traj[valid, j],
-                color="crimson",
-                lw=1.2,
-                ls="--",
-                alpha=0.85,
-                label="EDMD" if i == 0 else None,
-            )
+        for rolls, color, ls, alpha, label, which in series:
+            for i, item in enumerate(rolls):
+                traj = item[which][:, j]
+                valid = np.isfinite(traj)
+                if not np.any(valid):
+                    continue
+                ax.plot(
+                    t[valid],
+                    traj[valid],
+                    color=color,
+                    lw=1.2,
+                    ls=ls,
+                    alpha=alpha,
+                    label=label if i == 0 else None,
+                )
+        ax.set_ylim(*true_trajectory_ylim(rollouts, j))
         ax.set_ylabel(rf"$x_{j + 1}$")
         ax.legend(loc="best")
         ax.grid(alpha=0.3)
@@ -191,8 +205,54 @@ def _plot_phase_trajectories_for_paper(
     return fig
 
 
+def _plot_rollout_errors_for_paper(
+    rel_switched: np.ndarray,
+    rel_vanilla: np.ndarray | None = None,
+    *,
+    save_path: Path | None = None,
+    show: bool = False,
+    label_font_size: float = PAPER_LABEL_FONT_SIZE,
+    tick_font_size: float = PAPER_TICK_FONT_SIZE,
+    legend_font_size: float = PAPER_LEGEND_FONT_SIZE,
+):
+    """Paper-formatted mean relative rollout error vs time step (log scale), with
+    the per-trajectory curves drawn faintly behind the mean."""
+    import matplotlib.pyplot as plt
+
+    rel_switched = np.asarray(rel_switched, dtype=np.float64)
+    if rel_switched.size == 0:
+        return None
+
+    curves = [(rel_switched, "crimson", SWITCHED_LABEL)]
+    if rel_vanilla is not None and np.asarray(rel_vanilla).size > 0:
+        curves.append((np.asarray(rel_vanilla, dtype=np.float64), "steelblue", VANILLA_LABEL))
+
+    fig, ax = plt.subplots(figsize=(7, 4))
+    for arr, color, label in curves:
+        t = np.arange(arr.shape[1])
+        for row in arr:
+            ax.plot(t, row, color=color, lw=0.5, alpha=0.12)
+        with np.errstate(all="ignore"):
+            mean = np.nanmean(arr, axis=0)
+        ax.plot(t, mean, color=color, lw=2.0, label=label)
+    ax.set_yscale("log")
+    ax.set_xlabel("time step")
+    ax.set_ylabel(r"$\|\hat{x}_t - x_t\| / \|x_t\|$")
+    ax.grid(alpha=0.3, which="both")
+    ax.legend(loc="best")
+    _apply_paper_axis_fonts(
+        ax,
+        label_font_size=label_font_size,
+        tick_font_size=tick_font_size,
+        legend_font_size=legend_font_size,
+    )
+    plt.tight_layout()
+    finalize_figure(fig, save_path=save_path, show=show)
+    return fig
+
+
 def _plot_data_path_from_config(config_path: Path) -> Path:
-    cfg = _settings(config_path)
+    cfg = load_settings(config_path)
     return resolve(cfg["plot_data_output_path"])
 
 
@@ -209,7 +269,7 @@ def generate_paper_plots(
 ) -> Path:
     """Render partition scatter and phase trajectory figures used in the paper."""
     data = load_plot_data(plot_data_path)
-    out_dir = output_dir or (_DOCS_FIGURES / data["docs_figures_relpath"])
+    out_dir = output_dir or (_PAPER_FIGURES / data["paper_figures_relpath"])
     out_dir.mkdir(parents=True, exist_ok=True)
 
     X = data["partition_X"]
@@ -233,9 +293,11 @@ def generate_paper_plots(
         )
 
     rollouts = rollouts_from_arrays(data["phase_true_trajs"], data["phase_pred_trajs"])
+    vanilla_rollouts = rollouts_from_arrays(data["phase_true_trajs"], data["phase_vanilla_trajs"])
     if rollouts:
         _plot_phase_trajectories_for_paper(
             rollouts,
+            vanilla_rollouts=vanilla_rollouts or None,
             save_path=out_dir / "phase_trajectories.png",
             show=show,
             label_font_size=label_font_size,
@@ -244,6 +306,19 @@ def generate_paper_plots(
         )
     else:
         print(f"No phase trajectories stored in {data['source_path']}; skipped phase_trajectories.png")
+
+    if data["rollout_rel_err_switched"].size > 0:
+        _plot_rollout_errors_for_paper(
+            data["rollout_rel_err_switched"],
+            data["rollout_rel_err_vanilla"],
+            save_path=out_dir / "rollout_errors.png",
+            show=show,
+            label_font_size=label_font_size,
+            tick_font_size=tick_font_size,
+            legend_font_size=legend_font_size,
+        )
+    else:
+        print(f"No rollout error curves stored in {data['source_path']}; skipped rollout_errors.png")
 
     print(f"Paper figures written to {out_dir}")
     return out_dir
