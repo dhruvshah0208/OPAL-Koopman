@@ -225,4 +225,4 @@ If you use this code, please cite the paper:
 
 ## License
 
-TODO
+Released under the [MIT License](LICENSE).
