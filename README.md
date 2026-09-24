@@ -83,11 +83,6 @@ write nothing to `data/` (except `paper_plots.ipynb`, which caches its arrays in
 | [`bistable_oscillations_walkthrough.ipynb`](notebooks/bistable_oscillations_walkthrough.ipynb) | The same walkthrough for the bistable-oscillations system, including the case where the occupancy filter is essential. |
 | [`paper_plots.ipynb`](notebooks/paper_plots.ipynb) | Produces every figure and number in the paper end to end for both systems, with the parameters in `configs/<system>/`: partition, validation phase portrait (correct / misclassified / dropped points), two-initial-condition rollouts (time series and phase plane) and gated rollout-error curves, regional vs vanilla EDMD. Caches all arrays in `data/paper_plots/<system>/*.npz` for the `plotting/` scripts. |
 
-Supplementary write-ups: [`plotting/results_table.md`](plotting/results_table.md)
-(experimental setup, parameters and result tables, auto-generated),
-[`plotting/tau_robust.md`](plotting/tau_robust.md) (the robustness margin) and
-[`plotting/tau_occ_sensitivity.md`](plotting/tau_occ_sensitivity.md) (sensitivity to the
-occupancy threshold).
 
 ## Running the pipeline from the command line
 
