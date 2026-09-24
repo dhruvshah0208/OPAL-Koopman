@@ -1,14 +1,16 @@
 """
-Build switched (multiple local linear) Koopman models on a graph-merged partition
-and compare them against a single vanilla EDMD model.
+Build regional EDMD models on a graph-merged partition and compare them against a
+single vanilla EDMD model.
 
-For each partition component, fit a local EDMD model on the snapshot pairs from
+For each partition component, fit a regional EDMD model on the snapshot pairs from
 ``data_path`` that the partition assigns to it (pairs the partition drops, label -1,
 e.g. by the ``tau_robust`` margin, are excluded). Fit one global (vanilla) EDMD model
 on *all* snapshot pairs with the *same* dictionary (the ``vanilla_*`` keys can override
-the dictionary, but by default it is shared). Save ``switched_models.npz``,
+the dictionary, but by default it is shared). The components are forward invariant,
+so a rollout classifies its initial condition once and uses that component's model
+for the whole horizon. Save ``regional_models.npz``,
 ``vanilla_edmd_model.npz`` and ``multiple_linear_models_plot_data.npz``, plot the
-partition scatter, the true / switched / vanilla state trajectories and the
+partition scatter, the true / regional / vanilla state trajectories and the
 rollout error curves, then evaluate one-step and rollout errors for both models on
 ``validation_data_path`` using target-anchored classification (metrics are
 computed only on correctly classified snapshots / trajectories with correctly
@@ -50,10 +52,10 @@ from src_omega_partition.plotting import (  # noqa: E402
     plot_state_partition_1d,
     plot_state_partition_2d,
 )
-from src_omega_partition.switched_models import (  # noqa: E402
-    fit_switched_edmd_models,
+from src_omega_partition.regional_models import (  # noqa: E402
+    fit_regional_edmd_models,
     fit_vanilla_edmd_model,
-    switched_koopman_rollout,
+    regional_koopman_rollout,
     vanilla_koopman_rollout,
 )
 from src_omega_partition.tables import print_table  # noqa: E402
@@ -61,7 +63,7 @@ from src_omega_partition.tables import print_table  # noqa: E402
 _ROOT = PROJECT_ROOT
 DEFAULT_CONFIG_PATH = _ROOT / "configs/duffing/build_multiple_linear_models.json"
 
-SWITCHED_LABEL = "switched EDMD"
+REGIONAL_LABEL = "regional EDMD"
 VANILLA_LABEL = "vanilla EDMD"
 
 _DEFAULTS = {
@@ -69,7 +71,7 @@ _DEFAULTS = {
     "data_path": _ROOT / "data/duffing/duffing_data.npz",
     "validation_data_path": None,
     "centers_global_data_path": _ROOT / "data/duffing/duffing_data.npz",
-    "output_path": _ROOT / "data/duffing/switched_models.npz",
+    "output_path": _ROOT / "data/duffing/regional_models.npz",
     "target_equilibria": [[-1.0, 0.0], [1.0, 0.0]],
     "target_data_paths": None,
     "system_name": "duffing_eqn",
@@ -77,7 +79,7 @@ _DEFAULTS = {
     "edmd_d_poly": 1,
     "number_centers_edmd": -1,
     "compare_vanilla_edmd": True,
-    # None for all three -> vanilla EDMD reuses the switched dictionary object exactly.
+    # None for all three -> vanilla EDMD reuses the regional dictionary object exactly.
     "vanilla_edmd_gamma": None,
     "vanilla_edmd_d_poly": None,
     "vanilla_number_centers_edmd": None,
@@ -88,7 +90,6 @@ _DEFAULTS = {
     "rollout_rel_rmse_times": [0, 50, 100, 200, 300],
     "num_phase_plot": 5,
     "ICs_phase_plot": [],
-    "reclassify_each_step": True,
     "run_gated_evaluation": True,
     "random_state": 42,
     "show_plots": True,
@@ -153,7 +154,6 @@ def load_settings(config_path: Path | None) -> dict:
     else:
         s["rollout_rel_rmse_times"] = [int(t) for t in s["rollout_rel_rmse_times"]]
     s["num_phase_plot"] = int(s["num_phase_plot"])
-    s["reclassify_each_step"] = bool(s["reclassify_each_step"])
     s["run_gated_evaluation"] = bool(s["run_gated_evaluation"])
     s["random_state"] = int(s["random_state"])
     s["show_plots"] = bool(s["show_plots"])
@@ -174,7 +174,7 @@ def load_settings(config_path: Path | None) -> dict:
 
 
 def _finalizeload_settings(s: dict, *, raw: dict) -> dict:
-    """Resolve the vanilla-EDMD keys, which default to the switched-EDMD values."""
+    """Resolve the vanilla-EDMD keys, which default to the regional-EDMD values."""
     s["compare_vanilla_edmd"] = bool(s["compare_vanilla_edmd"])
     s["vanilla_shares_dictionary"] = all(
         s[k] is None
@@ -272,7 +272,7 @@ def save_plot_data(
     evaluation: dict | None = None,
     phase_vanilla_rollouts: list | None = None,
 ) -> None:
-    """Persist arrays used to render switched-model paper figures.
+    """Persist arrays used to render regional-model paper figures.
 
     Vanilla-EDMD arrays (``phase_vanilla_trajs``, ``vanilla_rel_rmse_values`` and the
     per-trajectory rollout error curves) are written empty when no comparison was run.
@@ -301,9 +301,9 @@ def save_plot_data(
         rel_rmse_values=rel_values,
         vanilla_rel_rmse_values=vanilla_rel_values,
         partition_accuracy=np.float64(evaluation.get("partition_accuracy", np.nan)),
-        rollout_rel_err_switched=np.asarray(curves.get("rel_switched", _empty_curves()), dtype=np.float64),
+        rollout_rel_err_regional=np.asarray(curves.get("rel_regional", _empty_curves()), dtype=np.float64),
         rollout_rel_err_vanilla=np.asarray(curves.get("rel_vanilla", _empty_curves()), dtype=np.float64),
-        rollout_abs_err_switched=np.asarray(curves.get("abs_switched", _empty_curves()), dtype=np.float64),
+        rollout_abs_err_regional=np.asarray(curves.get("abs_regional", _empty_curves()), dtype=np.float64),
         rollout_abs_err_vanilla=np.asarray(curves.get("abs_vanilla", _empty_curves()), dtype=np.float64),
     )
     print(f"Plot data saved to {output_path}")
@@ -349,9 +349,9 @@ def load_plot_data(path: Path | str) -> dict:
         "rel_rmse_values": rel_values,
         "vanilla_rel_rmse_values": vanilla_rel_values,
         "partition_accuracy": partition_accuracy,
-        "rollout_rel_err_switched": _optional("rollout_rel_err_switched", np.float64, _empty_curves()),
+        "rollout_rel_err_regional": _optional("rollout_rel_err_regional", np.float64, _empty_curves()),
         "rollout_rel_err_vanilla": _optional("rollout_rel_err_vanilla", np.float64, _empty_curves()),
-        "rollout_abs_err_switched": _optional("rollout_abs_err_switched", np.float64, _empty_curves()),
+        "rollout_abs_err_regional": _optional("rollout_abs_err_regional", np.float64, _empty_curves()),
         "rollout_abs_err_vanilla": _optional("rollout_abs_err_vanilla", np.float64, _empty_curves()),
         "source_path": path,
     }
@@ -405,7 +405,7 @@ def _save_models(
         partition_path=np.array(str(resolve(cfg["partition_path"]))),
         system_name=np.array(cfg["system_name"]),
     )
-    print(f"Switched models saved to {output_path}")
+    print(f"Regional models saved to {output_path}")
 
 
 def _save_vanilla_model(
@@ -520,7 +520,7 @@ def _one_step_cell_results(
     """One-step errors per partition component plus an ``all`` row over their union.
 
     ``operator_for_label`` returns the (K, R) pair used on a component; for the
-    switched model that is the local operator, for vanilla EDMD the global one.
+    regional model that is the component's operator, for vanilla EDMD the global one.
     """
     results: list[CellResult] = []
     pooled: list[tuple[np.ndarray, np.ndarray, np.ndarray]] = []
@@ -559,21 +559,21 @@ def _print_cell_table(rows: list[CellResult]) -> None:
     print_table(headers, body)
 
 
-def _print_cell_comparison_table(switched: list[CellResult], vanilla: list[CellResult]) -> None:
+def _print_cell_comparison_table(regional: list[CellResult], vanilla: list[CellResult]) -> None:
     """Side-by-side one-step errors; rows are matched by component name."""
     vanilla_by_name = {r.component: r for r in vanilla}
     headers = (
         "Component",
         "Samples",
-        "Lifted rel (sw)",
+        "Lifted rel (reg)",
         "Lifted rel (van)",
-        "State RMSE (sw)",
+        "State RMSE (reg)",
         "State RMSE (van)",
-        "State rel (sw)",
+        "State rel (reg)",
         "State rel (van)",
     )
     body = []
-    for r in switched:
+    for r in regional:
         v = vanilla_by_name.get(r.component)
         body.append(
             (
@@ -635,11 +635,9 @@ def _initial_state_correct_mask(
     return correct_mask.reshape(n_traj, snapshots_per_traj)[:, 0]
 
 
-def _switched_rollout_fn(models: dict, partition: dict, Phi, cfg: dict) -> RolloutFn:
+def _regional_rollout_fn(models: dict, partition: dict, Phi) -> RolloutFn:
     def _run(x0: np.ndarray, horizon: int) -> tuple[np.ndarray, np.ndarray]:
-        return switched_koopman_rollout(
-            x0, horizon, models, partition, Phi, reclassify=cfg["reclassify_each_step"]
-        )
+        return regional_koopman_rollout(x0, horizon, models, partition, Phi)
 
     return _run
 
@@ -742,19 +740,18 @@ def _print_rollout_rel_rmse_times(metrics: dict, vanilla_metrics: dict | None = 
         return (name, *(f"{float(vals.get(t, float('nan'))):.6g}" for t in rel_times))
 
     headers = ("Time step", *(str(t) for t in rel_times))
-    rows = [_row(f"Mean rel. error ({SWITCHED_LABEL})", metrics)]
+    rows = [_row(f"Mean rel. error ({REGIONAL_LABEL})", metrics)]
     if vanilla_metrics is not None:
         rows.append(_row(f"Mean rel. error ({VANILLA_LABEL})", vanilla_metrics))
     print_table(headers, rows)
 
 
 def _print_rollout_summary(
-    metrics: dict, vanilla_metrics: dict | None, cfg: dict, *, gated: bool = True
+    metrics: dict, vanilla_metrics: dict | None, *, gated: bool = True
 ) -> None:
     print(
         f"Horizon = {int(metrics['horizon'])}, "
-        f"{int(metrics['n_traj'])} trajectories sampled, "
-        f"reclassify_each_step = {cfg['reclassify_each_step']}"
+        f"{int(metrics['n_traj'])} trajectories sampled"
     )
     if gated:
         print(
@@ -763,7 +760,7 @@ def _print_rollout_summary(
             f"(skipped {int(metrics['n_skipped_ic'])} misclassified ICs"
             + ("; same set for both models)" if vanilla_metrics is not None else ")")
         )
-    headers = ("Metric", SWITCHED_LABEL) + ((VANILLA_LABEL,) if vanilla_metrics else ())
+    headers = ("Metric", REGIONAL_LABEL) + ((VANILLA_LABEL,) if vanilla_metrics else ())
 
     def _row(name: str, key: str, fmt: str) -> tuple[str, ...]:
         cells = [name, format(metrics[key], fmt)]
@@ -864,7 +861,7 @@ def run_classification_gated_evaluation(
             operator_for_label=lambda _l: (vanilla_model["K"], vanilla_model["R"]),
             sample_mask=correct_mask,
         )
-        print("--- One-step EDMD, switched vs vanilla (correctly classified snapshots) ---")
+        print("--- One-step EDMD, regional vs vanilla (correctly classified snapshots) ---")
         _print_cell_comparison_table(cell_rows, vanilla_rows)
 
     if traj_val is None:
@@ -883,7 +880,7 @@ def run_classification_gated_evaluation(
         traj_val,
         traj_indices,
         horizon,
-        _switched_rollout_fn(models, partition, Phi_edmd, cfg),
+        _regional_rollout_fn(models, partition, Phi_edmd),
         cfg,
         n_sampled=n_sampled,
         n_skipped_ic=n_skipped_ic,
@@ -893,8 +890,8 @@ def run_classification_gated_evaluation(
     result["rel_rmse_times"] = list(rel_times)
     result["rel_rmse_values"] = [float(metrics["rel_rmse_at_times"][t]) for t in rel_times]
     result["error_curves"] = {
-        "rel_switched": metrics["rel_err_curves"],
-        "abs_switched": metrics["abs_err_curves"],
+        "rel_regional": metrics["rel_err_curves"],
+        "abs_regional": metrics["abs_err_curves"],
     }
 
     vanilla_metrics = None
@@ -917,7 +914,7 @@ def run_classification_gated_evaluation(
 
     print()
     print("--- T-step rollout (correct IC only) ---")
-    _print_rollout_summary(metrics, vanilla_metrics, cfg)
+    _print_rollout_summary(metrics, vanilla_metrics)
     print()
     print("--- Rollout relative error at selected time steps (correct IC only) ---")
     _print_rollout_rel_rmse_times(metrics, vanilla_metrics)
@@ -1030,7 +1027,7 @@ def plot_phase_trajectories(
     save_path: Path | None = None,
     show: bool = False,
 ):
-    """Plot true vs switched-EDMD (and optionally vanilla-EDMD) state trajectories,
+    """Plot true vs regional-EDMD (and optionally vanilla-EDMD) state trajectories,
     one subplot per state variable."""
     import matplotlib.pyplot as plt
 
@@ -1043,7 +1040,7 @@ def plot_phase_trajectories(
     fig, axes = plt.subplots(n_state, 1, figsize=(8, 3.0 * n_state), squeeze=False)
     t = np.arange(horizon)
 
-    series = [(rollouts, "black", "-", 0.65, "true", 0), (rollouts, "crimson", "--", 0.85, SWITCHED_LABEL, 1)]
+    series = [(rollouts, "black", "-", 0.65, "true", 0), (rollouts, "crimson", "--", 0.85, REGIONAL_LABEL, 1)]
     if vanilla_rollouts:
         series.append((vanilla_rollouts, "steelblue", ":", 0.9, VANILLA_LABEL, 1))
 
@@ -1064,7 +1061,7 @@ def plot_phase_trajectories(
         ax.grid(alpha=0.3)
 
     axes[-1, 0].set_xlabel("time step")
-    title = f"True vs {SWITCHED_LABEL}"
+    title = f"True vs {REGIONAL_LABEL}"
     if vanilla_rollouts:
         title += f" vs {VANILLA_LABEL}"
     fig.suptitle(f"{title} trajectories ({system_name}, {n_traj} ICs)", y=1.01)
@@ -1074,8 +1071,8 @@ def plot_phase_trajectories(
 
 
 def plot_rollout_errors(
-    rel_switched: np.ndarray,
-    abs_switched: np.ndarray,
+    rel_regional: np.ndarray,
+    abs_regional: np.ndarray,
     *,
     rel_vanilla: np.ndarray | None = None,
     abs_vanilla: np.ndarray | None = None,
@@ -1088,11 +1085,11 @@ def plot_rollout_errors(
     per-trajectory curves (thin). Left: relative state error, right: absolute."""
     import matplotlib.pyplot as plt
 
-    rel_switched = np.asarray(rel_switched, dtype=np.float64)
-    if rel_switched.size == 0:
+    rel_regional = np.asarray(rel_regional, dtype=np.float64)
+    if rel_regional.size == 0:
         return None
 
-    curves = [(rel_switched, abs_switched, "crimson", SWITCHED_LABEL)]
+    curves = [(rel_regional, abs_regional, "crimson", REGIONAL_LABEL)]
     if rel_vanilla is not None and np.asarray(rel_vanilla).size > 0:
         curves.append((np.asarray(rel_vanilla), np.asarray(abs_vanilla), "steelblue", VANILLA_LABEL))
 
@@ -1153,7 +1150,7 @@ def load_fit_data(cfg: dict) -> tuple[np.ndarray, np.ndarray, np.ndarray | None,
 def fit_models_from_config(cfg: dict, partition: dict, X: np.ndarray, Y: np.ndarray,
                            centers_global: np.ndarray) -> dict:
     """
-    Fit the switched local EDMD models (pairs the partition drops are excluded) and,
+    Fit the regional EDMD models (pairs the partition drops are excluded) and,
     if ``compare_vanilla_edmd``, the vanilla EDMD model on all pairs with the same
     dictionary (or the ``vanilla_*`` override). Nothing is written to disk.
 
@@ -1174,16 +1171,16 @@ def fit_models_from_config(cfg: dict, partition: dict, X: np.ndarray, Y: np.ndar
         n_centers=cfg["number_centers_edmd"], gamma=cfg["edmd_gamma"],
         d_poly=cfg["edmd_d_poly"], random_state=cfg["random_state"],
     )
-    print(f" Switched EDMD dictionary: gamma = {cfg['edmd_gamma']}, d_poly = {cfg['edmd_d_poly']}, "
+    print(f" Regional EDMD dictionary: gamma = {cfg['edmd_gamma']}, d_poly = {cfg['edmd_d_poly']}, "
           f"{edmd_centers.shape[0]} centers, {Phi_edmd.s} elements")
 
-    models = fit_switched_edmd_models(
+    models = fit_regional_edmd_models(
         X, Y, labels, Phi_edmd, min_samples=cfg["min_samples_per_cell"]
     )
     _print_training_diagnostics(models, labels)
     n_used = int(sum(models["sample_counts"].values()))
     print(
-        f"  Switched EDMD fitted on {n_used} of {X.shape[0]} snapshot pairs "
+        f"  Regional EDMD fitted on {n_used} of {X.shape[0]} snapshot pairs "
         f"({X.shape[0] - n_used} excluded: partition-dropped or skipped components)"
     )
 
@@ -1196,7 +1193,7 @@ def fit_models_from_config(cfg: dict, partition: dict, X: np.ndarray, Y: np.ndar
 
     if cfg["vanilla_shares_dictionary"]:
         vanilla_centers, Phi_vanilla = edmd_centers, Phi_edmd
-        print("\n Vanilla EDMD dictionary: same object as the switched EDMD dictionary")
+        print("\n Vanilla EDMD dictionary: same object as the regional EDMD dictionary")
     else:
         vanilla_centers, Phi_vanilla = _build_dictionary(
             centers_global, n,
@@ -1218,22 +1215,22 @@ def fit_models_from_config(cfg: dict, partition: dict, X: np.ndarray, Y: np.ndar
 
 def phase_plot_rollouts(cfg: dict, fit: dict, partition: dict, trajectories: np.ndarray | None,
                         n_state: int) -> tuple[list | None, list | None]:
-    """Switched (and vanilla) rollouts from ``ICs_phase_plot`` (simulated) or, if that is
-    empty, from ``num_phase_plot`` sampled trajectories. Returns (switched, vanilla) rollout lists."""
+    """Regional (and vanilla) rollouts from ``ICs_phase_plot`` (simulated) or, if that is
+    empty, from ``num_phase_plot`` sampled trajectories. Returns (regional, vanilla) rollout lists."""
     if not fit["models"]["K_by_label"]:
         return None, None
     phase_true, horizon = _phase_plot_true_trajectories(trajectories, cfg, n_state=n_state)
     if phase_true is None:
         return None, None
-    switched = _rollouts_from_trajectories(
-        phase_true, horizon, _switched_rollout_fn(fit["models"], partition, fit["Phi_edmd"], cfg)
+    regional = _rollouts_from_trajectories(
+        phase_true, horizon, _regional_rollout_fn(fit["models"], partition, fit["Phi_edmd"])
     )
     vanilla = None
     if fit["vanilla_model"] is not None:
         vanilla = _rollouts_from_trajectories(
             phase_true, horizon, _vanilla_rollout_fn(fit["vanilla_model"], fit["Phi_vanilla"])
         )
-    return switched, vanilla
+    return regional, vanilla
 
 
 def main(config_path: Path | None = None) -> None:
@@ -1306,13 +1303,13 @@ def main(config_path: Path | None = None) -> None:
                     phase_rollouts,
                     phase_vanilla_rollouts,
                     title=f"Rollouts over the partition ({cfg['system_name']})",
-                    switched_label=SWITCHED_LABEL,
+                    regional_label=REGIONAL_LABEL,
                     vanilla_label=VANILLA_LABEL,
                     save_path=plots_dir / "phase_portrait.png" if plots_dir else None,
                     show=show,
                 )
         elif cfg["ICs_phase_plot"] or cfg["num_phase_plot"] > 0:
-            print("\nPhase plots skipped: no valid switched-model rollouts for the configured ICs.")
+            print("\nPhase plots skipped: no valid regional-model rollouts for the configured ICs.")
 
     if phase_rollouts:
         # Cheap diagnostics on the phase-plot ICs; the main use is parameter tuning
@@ -1326,7 +1323,7 @@ def main(config_path: Path | None = None) -> None:
         )
         print()
         print(f"--- Phase-plot IC rollouts ({len(phase_rollouts)} ICs, horizon = {ic_horizon}) ---")
-        _print_rollout_summary(ic_metrics, ic_vanilla_metrics, cfg, gated=False)
+        _print_rollout_summary(ic_metrics, ic_vanilla_metrics, gated=False)
         print()
         print("--- Phase-plot IC rollout relative error at selected time steps ---")
         _print_rollout_rel_rmse_times(ic_metrics, ic_vanilla_metrics)
@@ -1348,18 +1345,18 @@ def main(config_path: Path | None = None) -> None:
         curves = {}
         if phase_rollouts:
             curves = {
-                "rel_switched": ic_metrics["rel_err_curves"],
-                "abs_switched": ic_metrics["abs_err_curves"],
+                "rel_regional": ic_metrics["rel_err_curves"],
+                "abs_regional": ic_metrics["abs_err_curves"],
             }
             if ic_vanilla_metrics is not None:
                 curves["rel_vanilla"] = ic_vanilla_metrics["rel_err_curves"]
                 curves["abs_vanilla"] = ic_vanilla_metrics["abs_err_curves"]
         error_plot_title = "phase-plot ICs"
 
-    if (cfg["show_plots"] or cfg["plots_output_dir"]) and "rel_switched" in curves:
+    if (cfg["show_plots"] or cfg["plots_output_dir"]) and "rel_regional" in curves:
         plot_rollout_errors(
-            curves["rel_switched"],
-            curves["abs_switched"],
+            curves["rel_regional"],
+            curves["abs_regional"],
             rel_vanilla=curves.get("rel_vanilla"),
             abs_vanilla=curves.get("abs_vanilla"),
             system_name=cfg["system_name"],

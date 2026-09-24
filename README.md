@@ -13,17 +13,18 @@ method
 2. clusters the data in those coordinates into fine cells and merges them, first by empirical
    transition probabilities and then by value-space proximity, into an approximate
    **omega-limit partition** of the state space (Algorithm 1 in the paper), and
-3. fits one **local EDMD model per partition cell** and uses the partition to switch between
-   them, comparing long-horizon prediction against a single vanilla EDMD model fit on the
-   same data.
+3. fits one **regional EDMD model per partition cell**. Because the learned cells are forward
+   invariant, a trajectory never leaves its cell: the initial condition is classified once and
+   that cell's regional model is used for the entire rollout, with no switching between models.
+   Long-horizon prediction is compared against a single vanilla EDMD model fit on the same data.
 
 Two examples from the paper are included: the **Duffing oscillator** (two stable equilibria)
 and a planar system with **bistable oscillations** (two stable limit cycles), plus a 1-D
 bistable toy used for sanity checks.
 
 <p align="center">
-  <img src="plotting/duffing_rollout_phase_portrait.png" width="48%" alt="Duffing: switched vs vanilla EDMD rollouts">
-  <img src="plotting/bistable_oscillations_rollout_phase_portrait.png" width="48%" alt="Bistable oscillations: switched vs vanilla EDMD rollouts">
+  <img src="plotting/duffing_rollout_phase_portrait.png" width="48%" alt="Duffing: regional vs vanilla EDMD rollouts">
+  <img src="plotting/bistable_oscillations_rollout_phase_portrait.png" width="48%" alt="Bistable oscillations: regional vs vanilla EDMD rollouts">
 </p>
 
 ## Contents
@@ -40,7 +41,7 @@ bistable toy used for sanity checks.
 ## Repository layout
 
 ```
-src_omega_partition/    library: invariants, partition (Algorithm 1), switched EDMD models,
+src_omega_partition/    library: invariants, partition (Algorithm 1), regional EDMD models,
                         anchor-based labels, plotting, plus the vendored simulator
                         (dynamical_systems.py) and dictionary classes (basis_functions.py)
 scripts/                one script per pipeline stage; each takes a single JSON config
@@ -90,9 +91,9 @@ write nothing to `data/` (except `paper_plots.ipynb`, which caches its arrays in
 
 | Notebook | What it does |
 |---|---|
-| [`duffing_walkthrough.ipynb`](notebooks/duffing_walkthrough.ipynb) | Step-by-step construction of the omega-limit partition for the Duffing oscillator. Section by section it introduces one ingredient of Algorithm 1, sweeps its parameter on a grid, plots the effect, and then fixes the paper value: dictionary and approximate invariants (`gamma`, `epsilon`), scalar clustering into fine cells (`scalar_cluster_count`), occupancy filter (`tau_occ`), transition-based merging (`tau_tr`), value-based merging (`tau_val`), the final partition, validation against labeled trajectories and the robustness margin (`tau_robust`). The last two sections fit the switched local EDMD models and the vanilla EDMD baseline on the final partition, and sweep the EDMD dictionary (number of RBF centers, `gamma`, polynomial degree) on one initial condition per attractor. |
+| [`duffing_walkthrough.ipynb`](notebooks/duffing_walkthrough.ipynb) | Step-by-step construction of the omega-limit partition for the Duffing oscillator. Section by section it introduces one ingredient of Algorithm 1, sweeps its parameter on a grid, plots the effect, and then fixes the paper value: dictionary and approximate invariants (`gamma`, `epsilon`), scalar clustering into fine cells (`scalar_cluster_count`), occupancy filter (`tau_occ`), transition-based merging (`tau_tr`), value-based merging (`tau_val`), the final partition, validation against labeled trajectories and the robustness margin (`tau_robust`). The last two sections fit the regional EDMD models and the vanilla EDMD baseline on the final partition, and sweep the EDMD dictionary (number of RBF centers, `gamma`, polynomial degree) on one initial condition per attractor. |
 | [`bistable_oscillations_walkthrough.ipynb`](notebooks/bistable_oscillations_walkthrough.ipynb) | The same walkthrough for the bistable-oscillations system, including the case where the occupancy filter is essential. |
-| [`paper_plots.ipynb`](notebooks/paper_plots.ipynb) | Produces every figure and number in the paper end to end for both systems, with the parameters in `configs/<system>/`: partition, validation phase portrait (correct / misclassified / dropped points), two-initial-condition rollouts (time series and phase plane) and gated rollout-error curves, switched vs vanilla EDMD. Caches all arrays in `data/paper_plots/<system>/*.npz` for the `plotting/` scripts. |
+| [`paper_plots.ipynb`](notebooks/paper_plots.ipynb) | Produces every figure and number in the paper end to end for both systems, with the parameters in `configs/<system>/`: partition, validation phase portrait (correct / misclassified / dropped points), two-initial-condition rollouts (time series and phase plane) and gated rollout-error curves, regional vs vanilla EDMD. Caches all arrays in `data/paper_plots/<system>/*.npz` for the `plotting/` scripts. |
 
 Supplementary write-ups: [`plotting/results_table.md`](plotting/results_table.md)
 (experimental setup, parameters and result tables, auto-generated),
@@ -116,9 +117,9 @@ python scripts/generate_validation_data.py configs/<system>/generate_validation_
 python scripts/build_partition.py          configs/<system>/build_partition.json
 # 4. partition accuracy against anchor states (equilibria or reference limit cycles)
 python scripts/validate_partition.py       configs/<system>/validate_partition.json
-# 5. local EDMD model per cell + vanilla EDMD baseline; one-step and rollout metrics;
+# 5. regional EDMD model per cell + vanilla EDMD baseline; one-step and rollout metrics;
 #    figures partition_scatter / phase_trajectories / phase_portrait / rollout_errors
-#    -> data/<system>/{switched_models,vanilla_edmd_model}.npz, figures/<system>/
+#    -> data/<system>/{regional_models,vanilla_edmd_model}.npz, figures/<system>/
 python scripts/build_multiple_linear_models.py configs/<system>/build_multiple_linear_models.json
 
 # 6. paper-styled versions of the step-5 figures        -> figures/paper/<system>/
@@ -127,7 +128,7 @@ python scripts/generate_merge_diagram.py   # Fig. 1 schematic   -> figures/paper
 ```
 
 Step 5 prints the numbers reported in Table I of the paper (classification accuracy and mean
-relative rollout error at selected time steps) for both the switched and the vanilla model.
+relative rollout error at selected time steps) for both the regional and the vanilla model.
 For `bistable_oscillations`, step 2 needs the two reference limit cycles used as class anchors;
 generate them before the validation data with
 
@@ -174,23 +175,29 @@ in `build_partition.json`:
 | `tau_val` | Merge two cells when their centroids in invariant space are closer than `tau_val`. |
 | `tau_robust` | Post-merge margin: points within `tau_robust` (relative to the merged region length, per coordinate) of a label-changing boundary are left unlabeled. Stored with the partition and applied at inference. |
 
-The EDMD dictionary for the local models is set separately in
+The EDMD dictionary for the regional models is set separately in
 `build_multiple_linear_models.json` (`edmd_gamma`, `edmd_d_poly`, `number_centers_edmd`;
 `0` centers gives a polynomial-only dictionary). The paper values (`1.0`, `6`, `100`) are the
 best of the sweeps in the walkthrough notebooks. `compare_vanilla_edmd` toggles the baseline
 (by default with the same dictionary; `vanilla_*` keys override it), `ICs_phase_plot` fixes
 the initial conditions of the phase plots, and `run_gated_evaluation = false` skips the slow
-validation-set evaluation while tuning.
+validation-set evaluation while tuning. There is no option to reclassify along a rollout: the
+cells are forward invariant, so only the initial condition is classified.
 
 ## Implementation notes
 
 - **Rollouts** lift the initial state once and propagate linearly in the lifted space
   (`z_{t+1} = z_t K`, decoded as `x_t = z_t R` for storage only). Re-lifting the decoded state
   every step would turn the model into a chained one-step predictor with far smaller errors;
-  both the switched model and the vanilla baseline use the lift-once rollout.
-- **Local vs vanilla fits.** The vanilla model is fitted on all snapshot pairs; each local
+  both the regional models and the vanilla baseline use the lift-once rollout.
+- **One classification per trajectory.** The learned cells are forward invariant (unions of
+  basins of attraction), so a trajectory stays in the cell of its initial condition. The
+  initial state is classified once, and that cell's regional model propagates the whole
+  horizon; the rollout never switches models. If the initial state is unlabeled (dropped by
+  `tau_occ` or `tau_robust`) or its cell has no fitted model, no regional prediction is made.
+- **Regional vs vanilla fits.** The vanilla model is fitted on all snapshot pairs; each regional
   model only on the pairs its cell keeps (occupancy- and `tau_robust`-dropped pairs excluded).
-  Both paper configs fit the local models on the validation set; the partition itself is fit
+  Both paper configs fit the regional models on the validation set; the partition itself is fit
   on the training set.
 - **Class labels** for validation come from anchors: the equilibrium (`target_equilibria`)
   or reference trajectory (`target_data_paths`) closest to a trajectory's final state.

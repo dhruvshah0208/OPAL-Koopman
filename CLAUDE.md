@@ -54,6 +54,6 @@ from there, not from `src` / `src_deep_koopman`. Use `MPLBACKEND=Agg` when runni
   systems (now in the configs); `number_centers_edmd = 0` gives a polynomial-only dictionary.
 - RBF convention in code is `exp(-gamma * ||x - c||^2)` (gamma = precision); the paper's
   `exp(-r^2 / 2 gamma^2)` text is inconsistent with the code.
-- Both `build_multiple_linear_models.json` configs fit the local EDMD models on the
+- Both `build_multiple_linear_models.json` configs fit the regional EDMD models on the
   validation set (`data_path` == `validation_data_path`); the partition itself is fit on
   the training set.

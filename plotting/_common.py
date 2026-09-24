@@ -18,10 +18,10 @@ DATA_DIR = PROJECT_ROOT / "data/paper_plots"
 FIG_DIR = Path(__file__).resolve().parent   # figures are written next to the scripts as <system>_<name>.png
 
 # Shared styling
-SWITCHED_LABEL = "regional EDMD"
+REGIONAL_LABEL = "regional EDMD"
 VANILLA_LABEL = "vanilla EDMD"
-COLOR_TRUE, COLOR_SWITCHED, COLOR_VANILLA = "black", "crimson", "#1f4fd8"
-LW_TRUE, LW_SWITCHED, LW_VANILLA = 2.6, 2.2, 2.2
+COLOR_TRUE, COLOR_REGIONAL, COLOR_VANILLA = "black", "crimson", "#1f4fd8"
+LW_TRUE, LW_REGIONAL, LW_VANILLA = 2.6, 2.2, 2.2
 CLASS_COLORS = ["red", "blue", "green", "orange"]          # partition cell / class colors
 CELL_FILL_COLORS = ["#f7b66b", "#7fcf8a", "#b89ae0", "#f090ad"]  # same hues as before, more saturated so the cells read clearly
 CELL_POINT_ALPHA, CELL_POINT_SIZE = 0.8, 3

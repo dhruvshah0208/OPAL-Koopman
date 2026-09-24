@@ -59,11 +59,11 @@ validation snapshot is scored against its ground-truth attractor (`configs/<syst
 
 ## 3. Regional and vanilla EDMD models
 
-Regional (switched) EDMD: one least-squares EDMD operator $K_\ell$ and reconstruction map $R_\ell$ per partition
+Regional EDMD: one least-squares EDMD operator $K_\ell$ and reconstruction map $R_\ell$ per partition
 cell, fitted on the snapshot pairs whose state the partition assigns to that cell (dropped pairs are excluded).
 Vanilla EDMD: one global $(K, R)$ fitted on **all** snapshot pairs with the **same** dictionary object. Rollouts
-lift the initial state once, $z_0 = \Psi(x_0)$, propagate $z_{t+1} = z_t K$ (the cell of $x_0$ selects $K_\ell$;
-no reclassification along the rollout) and decode $x_t = z_t R$ for storage only. Configuration files:
+lift the initial state once, $z_0 = \Psi(x_0)$, propagate $z_{t+1} = z_t K$ (the cells are forward invariant, so
+the cell of $x_0$ selects $K_\ell$ for the whole rollout) and decode $x_t = z_t R$ for storage only. Configuration files:
 `configs/<system>/build_multiple_linear_models.json`; the notebook overrides the dictionary with the best
 values from the sweeps in the walkthrough notebooks (`BEST_EDMD`).
 
@@ -73,7 +73,6 @@ values from the sweeps in the walkthrough notebooks (`BEST_EDMD`).
 | `edmd_d_poly` | 6 | 6 |
 | `number_centers_edmd` | 100 | 100 |
 | `min_samples_per_cell` | 1 | 1 |
-| `reclassify_each_step` | False | False |
 | `prediction_horizon` | 400 | 300 |
 | `n_rollout_trajectories` | 50 | 100 |
 | `rollout_rel_rmse_times` | [0, 50, 100, 200, 300] | [0, 50, 100, 200, 300] |
@@ -140,7 +139,7 @@ end up in the wrong cell's least-squares problem.
 
 ### Regional operators
 
-Largest eigenvalue modulus $\rho(K_\ell)$ of each local operator (the constant observable always
+Largest eigenvalue modulus $\rho(K_\ell)$ of each regional operator (the constant observable always
 contributes an eigenvalue of exactly 1, so $\rho = 1$ means every other mode contracts or rotates).
 
 | System | Setting | $\rho(K_0)$ | $\rho(K_1)$ | $\rho(K)$ vanilla |
@@ -154,7 +153,7 @@ contributes an eigenvalue of exactly 1, so $\rho = 1$ means every other mode con
 
 *Gated*: trajectories whose initial condition is correctly classified (as in Section 5). *Ungated*: all
 sampled trajectories, including those whose initial condition is misclassified and therefore propagated
-with the wrong local model. "Diverged" counts rollouts whose relative error at the end of the horizon is
+with the wrong regional model. "Diverged" counts rollouts whose relative error at the end of the horizon is
 $\ge 1$ (or not finite) for the regional model; when it is non-zero the mean is dominated by those
 rollouts and the median of the final relative error over all rollouts is reported as well. The ungated
 rows are omitted where none of the sampled initial conditions is misclassified (identical to gated).

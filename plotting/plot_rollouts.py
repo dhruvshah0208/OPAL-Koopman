@@ -2,7 +2,7 @@
 
 Writes two figures: the state time series (one panel per state) and the phase-plane view over
 the partition. Input: data/paper_plots/<system>/rollouts.npz
-(true_trajs, switched_trajs, vanilla_trajs: (n_ic, horizon+1, n_state); X, labels: fit data
+(true_trajs, regional_trajs, vanilla_trajs: (n_ic, horizon+1, n_state); X, labels: fit data
 colored by partition cell; system_name)
 """
 
@@ -10,8 +10,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 
-from _common import (CELL_FILL_COLORS, CELL_POINT_ALPHA, CELL_POINT_SIZE, COLOR_SWITCHED, COLOR_TRUE, COLOR_VANILLA,
-                     LW_SWITCHED, LW_TRUE, LW_VANILLA, SWITCHED_LABEL, VANILLA_LABEL, finish, load, parse_args)
+from _common import (CELL_FILL_COLORS, CELL_POINT_ALPHA, CELL_POINT_SIZE, COLOR_REGIONAL, COLOR_TRUE, COLOR_VANILLA,
+                     LW_REGIONAL, LW_TRUE, LW_VANILLA, REGIONAL_LABEL, VANILLA_LABEL, finish, load, parse_args)
 
 
 def true_ylim(true_trajs, j, *, pad_frac=0.25, min_pad=0.1):
@@ -22,10 +22,10 @@ def true_ylim(true_trajs, j, *, pad_frac=0.25, min_pad=0.1):
     return lo - pad, hi + pad
 
 
-def plot_time_series(true_trajs, switched_trajs, vanilla_trajs):
+def plot_time_series(true_trajs, regional_trajs, vanilla_trajs):
     n_ic, horizon, n_state = true_trajs.shape
     t = np.arange(horizon)
-    series = [(true_trajs, COLOR_TRUE, "-", 0.7, "true"), (switched_trajs, COLOR_SWITCHED, "--", 0.9, SWITCHED_LABEL)]
+    series = [(true_trajs, COLOR_TRUE, "-", 0.7, "true"), (regional_trajs, COLOR_REGIONAL, "--", 0.9, REGIONAL_LABEL)]
     if vanilla_trajs.size:
         series.append((vanilla_trajs, COLOR_VANILLA, "-.", 0.9, VANILLA_LABEL))
 
@@ -46,7 +46,7 @@ def plot_time_series(true_trajs, switched_trajs, vanilla_trajs):
     return fig
 
 
-def plot_phase_portrait(X, labels, true_trajs, switched_trajs, vanilla_trajs):
+def plot_phase_portrait(X, labels, true_trajs, regional_trajs, vanilla_trajs):
     cmap = ListedColormap(CELL_FILL_COLORS)
     dropped = labels < 0
 
@@ -59,7 +59,7 @@ def plot_phase_portrait(X, labels, true_trajs, switched_trajs, vanilla_trajs):
     series = [(true_trajs, COLOR_TRUE, "-", LW_TRUE, "true", 3)]
     if vanilla_trajs.size:
         series.append((vanilla_trajs, COLOR_VANILLA, "-.", LW_VANILLA, VANILLA_LABEL, 4))
-    series.append((switched_trajs, COLOR_SWITCHED, "--", LW_SWITCHED, SWITCHED_LABEL, 5))
+    series.append((regional_trajs, COLOR_REGIONAL, "--", LW_REGIONAL, REGIONAL_LABEL, 5))
     for trajs, color, ls, lw, label, z in series:
         for i in range(trajs.shape[0]):
             ax.plot(trajs[i, :, 0], trajs[i, :, 1], color=color, ls=ls, lw=lw, zorder=z, label=label if i == 0 else None)
@@ -80,7 +80,7 @@ def plot_phase_portrait(X, labels, true_trajs, switched_trajs, vanilla_trajs):
 if __name__ == "__main__":
     args = parse_args(__doc__)
     d = load(args, "rollouts")
-    fig = plot_time_series(d["true_trajs"], d["switched_trajs"], d["vanilla_trajs"])
+    fig = plot_time_series(d["true_trajs"], d["regional_trajs"], d["vanilla_trajs"])
     finish(fig, args, "rollout_trajectories")
-    fig = plot_phase_portrait(d["X"], d["labels"], d["true_trajs"], d["switched_trajs"], d["vanilla_trajs"])
+    fig = plot_phase_portrait(d["X"], d["labels"], d["true_trajs"], d["regional_trajs"], d["vanilla_trajs"])
     finish(fig, args, "rollout_phase_portrait")

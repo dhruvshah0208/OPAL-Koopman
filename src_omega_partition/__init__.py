@@ -10,7 +10,7 @@ config           JSON config loading shared by the scripts
 dictionary       RBF centers and (RBF + polynomial) dictionaries
 invariants       generalized eigenvalue problem for approximate invariant observables
 partition        graph-merged partition (Algorithm 1): fit, save/load, classify
-switched_models  one local EDMD model per partition component; switched rollout
+regional_models  one regional EDMD model per partition component; regional rollout
 anchors          anchor-based mapping of partition ids to classes for validation
 plotting         figures for the partition pipeline
 tables           ASCII table printing

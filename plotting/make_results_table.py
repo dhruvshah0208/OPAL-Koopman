@@ -14,7 +14,7 @@ from pathlib import Path
 
 import numpy as np
 
-from _common import DATA_DIR, PROJECT_ROOT, SWITCHED_LABEL, VANILLA_LABEL
+from _common import DATA_DIR, PROJECT_ROOT, REGIONAL_LABEL, VANILLA_LABEL
 
 OUT = Path(__file__).resolve().parent / "results_table.md"
 NOTEBOOK = PROJECT_ROOT / "notebooks/paper_plots.ipynb"
@@ -162,14 +162,14 @@ L += ["", "### Validation of the partition", "",
 rows = [(I["S"]["title"], I["anchors"]) for I in info.values()]
 L += md_table(["System", "Anchors"], rows)
 L += ["", "## 3. Regional and vanilla EDMD models", "",
-      "Regional (switched) EDMD: one least-squares EDMD operator $K_\\ell$ and reconstruction map $R_\\ell$ per partition",
+      "Regional EDMD: one least-squares EDMD operator $K_\\ell$ and reconstruction map $R_\\ell$ per partition",
       "cell, fitted on the snapshot pairs whose state the partition assigns to that cell (dropped pairs are excluded).",
       "Vanilla EDMD: one global $(K, R)$ fitted on **all** snapshot pairs with the **same** dictionary object. Rollouts",
-      "lift the initial state once, $z_0 = \\Psi(x_0)$, propagate $z_{t+1} = z_t K$ (the cell of $x_0$ selects $K_\\ell$;",
-      "no reclassification along the rollout) and decode $x_t = z_t R$ for storage only. Configuration files:",
+      "lift the initial state once, $z_0 = \\Psi(x_0)$, propagate $z_{t+1} = z_t K$ (the cells are forward invariant, so",
+      "the cell of $x_0$ selects $K_\\ell$ for the whole rollout) and decode $x_t = z_t R$ for storage only. Configuration files:",
       "`configs/<system>/build_multiple_linear_models.json`; the notebook overrides the dictionary with the best",
       "values from the sweeps in the walkthrough notebooks (`BEST_EDMD`).", ""]
-keys = ["edmd_gamma", "edmd_d_poly", "number_centers_edmd", "min_samples_per_cell", "reclassify_each_step",
+keys = ["edmd_gamma", "edmd_d_poly", "number_centers_edmd", "min_samples_per_cell",
         "prediction_horizon", "n_rollout_trajectories", "rollout_rel_rmse_times", "random_state"]
 rows = [(f"`{k}`", *(str(I["mlm"][k]) for I in info.values())) for k in keys]
 rows.append(("dictionary size $s$", *(str(I["mlm"]["number_centers_edmd"] + comb(I["mlm"]["edmd_d_poly"] + 2, 2)) for I in info.values())))
@@ -212,7 +212,7 @@ for I in info.values():
     times = [int(t) for t in err["rel_rmse_times"] if int(t) > 0]
     keep = [i for i, t in enumerate(err["rel_rmse_times"]) if int(t) > 0]
     title = I["S"]["title"]
-    for label, key, vals in ((SWITCHED_LABEL, "switched", err["rel_rmse_values"]),
+    for label, key, vals in ((REGIONAL_LABEL, "regional", err["rel_rmse_values"]),
                              (VANILLA_LABEL, "vanilla", err["vanilla_rel_rmse_values"])):
         rows.append((title, label, *(fmt(vals[i]) for i in keep), fmt(rollout_rmse(err[f"abs_{key}"])),
                      str(err[f"rel_{key}"].shape[0])))
@@ -246,7 +246,7 @@ if ABLATION.is_file():
     L += md_table(["System", "Setting", "Snapshots", "Accuracy (all)", "Accuracy (un-dropped)", "Dropped",
                    "Misclassified", "Misclassified pairs in the regional fits"], rows)
     L += ["", "### Regional operators", "",
-          "Largest eigenvalue modulus $\\rho(K_\\ell)$ of each local operator (the constant observable always",
+          "Largest eigenvalue modulus $\\rho(K_\\ell)$ of each regional operator (the constant observable always",
           "contributes an eigenvalue of exactly 1, so $\\rho = 1$ means every other mode contracts or rotates).", ""]
     rows = []
     for system, I in info.items():
@@ -258,7 +258,7 @@ if ABLATION.is_file():
     L += ["", "### Rollout error", "",
           "*Gated*: trajectories whose initial condition is correctly classified (as in Section 5). *Ungated*: all",
           "sampled trajectories, including those whose initial condition is misclassified and therefore propagated",
-          "with the wrong local model. \"Diverged\" counts rollouts whose relative error at the end of the horizon is",
+          "with the wrong regional model. \"Diverged\" counts rollouts whose relative error at the end of the horizon is",
           "$\\ge 1$ (or not finite) for the regional model; when it is non-zero the mean is dominated by those",
           "rollouts and the median of the final relative error over all rollouts is reported as well. The ungated",
           "rows are omitted where none of the sampled initial conditions is misclassified (identical to gated).", ""]
@@ -271,7 +271,7 @@ if ABLATION.is_file():
                 g = r[gate]
                 if gate == "ungated" and (key == "config" or g["n_misclassified_ic"] == 0):
                     continue   # identical to the gated rows when no sampled IC is misclassified
-                for model, name in (("regional", SWITCHED_LABEL), ("vanilla", VANILLA_LABEL)):
+                for model, name in (("regional", REGIONAL_LABEL), ("vanilla", VANILLA_LABEL)):
                     vals = [g[model][str(t)] for t in times]
                     div = f"{g['regional_diverged']}/{g['n']}" if model == "regional" else "—"
                     med = fmt(g["regional_median_final"]) if model == "regional" else "—"

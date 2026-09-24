@@ -21,11 +21,11 @@ expect from the boundary's own positioning error.
 
 Two consumers of the partition care about this:
 
-* **The regional EDMD models.** Each local model is fitted on the snapshot pairs its cell keeps.
+* **The regional EDMD models.** Each regional model is fitted on the snapshot pairs its cell keeps.
   A misclassified pair near the boundary is a pair whose dynamics belong to the *other* attractor,
   i.e. an outlier in the least-squares fit of that cell's operator. Rollouts are also gated by the
   classification of the initial condition: a misclassified initial condition is propagated with the
-  wrong local model and converges to the wrong attractor.
+  wrong regional model and converges to the wrong attractor.
 * **The classification claim itself.** For the paper we want to say that, *when the partition
   decides*, it decides correctly. Dropping the ambiguous band trades a small fraction of
   *undecided* points for 100% accuracy on the points that are decided.
@@ -117,10 +117,10 @@ to $-1$, and `predict_graph_merged_labels` calls both whenever `tau_robust > 0`.
   relative boundary distances shows the margin as a vertical line, with the remaining
   misclassifications (if any) just outside it.
 * **Regional EDMD** (`build_multiple_linear_models.py`): dropped snapshot pairs are excluded from
-  every local fit (the vanilla EDMD baseline, which does not use the partition, is fitted on all
+  every regional fit (the vanilla EDMD baseline, which does not use the partition, is fitted on all
   pairs); rollouts whose initial condition is dropped or misclassified are skipped in the gated
-  evaluation, and a switched rollout with `reclassify_each_step = true` stops when the predicted
-  state enters the margin.
+  evaluation. Rollouts classify only the initial condition (the cells are forward invariant), so
+  the margin never interrupts a rollout.
 
 ## 4. Choosing the value
 

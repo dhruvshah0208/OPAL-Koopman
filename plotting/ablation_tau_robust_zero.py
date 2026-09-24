@@ -58,18 +58,18 @@ def run(system, tau_robust):
         ic_ok = bmlm._initial_state_correct_mask(traj, res.correct_mask)
         idx_all, horizon, _ = bmlm._select_rollout_indices(traj, mcfg, ic_correct_mask=None)
         idx_ok = idx_all[ic_ok[idx_all]]
-        sw_fn = bmlm._switched_rollout_fn(fit["models"], partition, fit["Phi_edmd"], mcfg)
+        reg_fn = bmlm._regional_rollout_fn(fit["models"], partition, fit["Phi_edmd"])
         van_fn = bmlm._vanilla_rollout_fn(fit["vanilla_model"], fit["Phi_vanilla"])
         metrics = {}
         for name, idx in (("gated", idx_ok), ("ungated", idx_all)):
-            m_sw, _ = bmlm._rollout_metrics(traj, idx, horizon, sw_fn, mcfg, n_sampled=len(idx), n_skipped_ic=0)
+            m_reg, _ = bmlm._rollout_metrics(traj, idx, horizon, reg_fn, mcfg, n_sampled=len(idx), n_skipped_ic=0)
             m_van, _ = bmlm._rollout_metrics(traj, idx, horizon, van_fn, mcfg, n_sampled=len(idx), n_skipped_ic=0)
-            final_sw = m_sw["rel_err_curves"][:, -1]
+            final_reg = m_reg["rel_err_curves"][:, -1]
             metrics[name] = dict(
                 n=int(len(idx)), n_misclassified_ic=int(np.sum(~ic_ok[idx])),
-                regional=rel_at_times(m_sw), regional_rmse=m_sw["mean_rmse"],
-                regional_median_final=float(np.nanmedian(final_sw)),
-                regional_diverged=int(np.sum(~(final_sw < 1.0))),   # final rel. error >= 1 or NaN
+                regional=rel_at_times(m_reg), regional_rmse=m_reg["mean_rmse"],
+                regional_median_final=float(np.nanmedian(final_reg)),
+                regional_diverged=int(np.sum(~(final_reg < 1.0))),   # final rel. error >= 1 or NaN
                 vanilla=rel_at_times(m_van), vanilla_rmse=m_van["mean_rmse"],
             )
 

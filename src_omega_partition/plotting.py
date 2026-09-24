@@ -467,14 +467,14 @@ def plot_rollout_phase_portrait(
     vanilla_rollouts=None,
     *,
     title="Rollouts over the partition",
-    switched_label="switched EDMD",
+    regional_label="regional EDMD",
     vanilla_label="vanilla EDMD",
     save_path=None,
     show=True,
 ):
     """
     2-D state-space view: training snapshots colored by partition cell (dropped in
-    gray) with true / switched (/ vanilla) rollout trajectories drawn on top.
+    gray) with true / regional (/ vanilla) rollout trajectories drawn on top.
 
     ``rollouts`` and ``vanilla_rollouts`` are lists of ``(true_traj, pred_traj, ...)``
     tuples as produced by the rollout helpers in ``build_multiple_linear_models``.
@@ -494,7 +494,7 @@ def plot_rollout_phase_portrait(
     ax.scatter(X[dropped, 0], X[dropped, 1], s=2, c="lightgray", edgecolors="none")
     ax.scatter(X[~dropped, 0], X[~dropped, 1], s=2, c=labels[~dropped], cmap=cmap,
                vmin=0, vmax=cmap.N - 1, alpha=0.5, edgecolors="none")
-    series = [(rollouts, 0, "black", "-", 1.6, "true"), (rollouts, 1, "crimson", "--", 1.3, switched_label)]
+    series = [(rollouts, 0, "black", "-", 1.6, "true"), (rollouts, 1, "crimson", "--", 1.3, regional_label)]
     if vanilla_rollouts:
         series.append((vanilla_rollouts, 1, "steelblue", ":", 1.3, vanilla_label))
     for rolls, which, color, ls, lw, label in series:

@@ -1,5 +1,5 @@
 '''
-Regenerate paper figures for switched local Koopman models from saved plot_data .npz.
+Regenerate paper figures for regional EDMD models from saved plot_data .npz.
 
 Reads arrays written by build_multiple_linear_models.save_plot_data and writes:
   figures/paper/<system>/multiple_linear_models/partition_scatter.png
@@ -43,7 +43,7 @@ PAPER_TICK_FONT_SIZE = 12
 PAPER_LEGEND_FONT_SIZE = 12
 
 from build_multiple_linear_models import (  # noqa: E402
-    SWITCHED_LABEL,
+    REGIONAL_LABEL,
     VANILLA_LABEL,
     load_settings,
     load_plot_data,
@@ -161,7 +161,7 @@ def _plot_phase_trajectories_for_paper(
     # (rollout list, color, linestyle, alpha, legend label, tuple index of the trajectory)
     series = [
         (rollouts, "black", "-", 0.65, "true", 0),
-        (rollouts, "crimson", "--", 0.85, SWITCHED_LABEL, 1),
+        (rollouts, "crimson", "--", 0.85, REGIONAL_LABEL, 1),
     ]
     if vanilla_rollouts:
         series.append((vanilla_rollouts, "steelblue", ":", 0.9, VANILLA_LABEL, 1))
@@ -206,7 +206,7 @@ def _plot_phase_trajectories_for_paper(
 
 
 def _plot_rollout_errors_for_paper(
-    rel_switched: np.ndarray,
+    rel_regional: np.ndarray,
     rel_vanilla: np.ndarray | None = None,
     *,
     save_path: Path | None = None,
@@ -219,11 +219,11 @@ def _plot_rollout_errors_for_paper(
     the per-trajectory curves drawn faintly behind the mean."""
     import matplotlib.pyplot as plt
 
-    rel_switched = np.asarray(rel_switched, dtype=np.float64)
-    if rel_switched.size == 0:
+    rel_regional = np.asarray(rel_regional, dtype=np.float64)
+    if rel_regional.size == 0:
         return None
 
-    curves = [(rel_switched, "crimson", SWITCHED_LABEL)]
+    curves = [(rel_regional, "crimson", REGIONAL_LABEL)]
     if rel_vanilla is not None and np.asarray(rel_vanilla).size > 0:
         curves.append((np.asarray(rel_vanilla, dtype=np.float64), "steelblue", VANILLA_LABEL))
 
@@ -307,9 +307,9 @@ def generate_paper_plots(
     else:
         print(f"No phase trajectories stored in {data['source_path']}; skipped phase_trajectories.png")
 
-    if data["rollout_rel_err_switched"].size > 0:
+    if data["rollout_rel_err_regional"].size > 0:
         _plot_rollout_errors_for_paper(
-            data["rollout_rel_err_switched"],
+            data["rollout_rel_err_regional"],
             data["rollout_rel_err_vanilla"],
             save_path=out_dir / "rollout_errors.png",
             show=show,
@@ -329,7 +329,7 @@ def main(argv: list[str] | None = None) -> None:
     if len(argv) > 1:
         raise SystemExit(
             "usage: generate_plots.py [CONFIG.json | plot_data.npz]\n"
-            "If omitted, regenerates figures for all default switched-model configs."
+            "If omitted, regenerates figures for all default regional-model configs."
         )
 
     if len(argv) == 0:

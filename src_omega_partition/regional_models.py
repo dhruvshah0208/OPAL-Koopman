@@ -1,4 +1,4 @@
-"""Multiple local linear (switched) EDMD models, one per partition component."""
+"""Regional EDMD models, one per (forward-invariant) partition component."""
 
 import numpy as np
 
@@ -14,9 +14,9 @@ def fit_reconstruction_matrix(Phi_X, X):
     return np.linalg.lstsq(np.asarray(Phi_X), np.asarray(X), rcond=None)[0]
 
 
-def fit_switched_edmd_models(X, Y, labels, Phi, *, min_samples=100):
+def fit_regional_edmd_models(X, Y, labels, Phi, *, min_samples=100):
     """
-    Fit a local EDMD model on each partition component.
+    Fit a regional EDMD model on each partition component.
 
     For every component label l >= 0 with at least ``min_samples`` snapshot
     pairs, fit a lifted-space propagator and a state-reconstruction map:
@@ -74,16 +74,17 @@ def fit_switched_edmd_models(X, Y, labels, Phi, *, min_samples=100):
     }
 
 
-def switched_koopman_rollout(x0, horizon, models, partition, Phi, *, reclassify=False):
+def regional_koopman_rollout(x0, horizon, models, partition, Phi):
     """
-    Roll a single initial state forward ``horizon`` steps with the switched model.
+    Roll a single initial state forward ``horizon`` steps with its regional model.
 
-    The initial state is lifted once, z_0 = Phi(x_0), and the rollout is carried
-    out entirely in the lifted space, z_{t+1} = z_t @ K_l. The state
-    x_t = z_t @ R_l is decoded for storage (and, with ``reclassify``, to pick the
-    local model) but is never re-lifted. If a state cannot be classified
-    (label -1) or its component has no fitted model, the rollout stops and the
-    remaining states are left as NaN.
+    The partition components are forward invariant, so the initial state is
+    classified once and that component's model (K_l, R_l) is used for the whole
+    rollout; the model is never switched. The initial state is lifted once,
+    z_0 = Phi(x_0), and the rollout is carried out entirely in the lifted space,
+    z_{t+1} = z_t @ K_l; x_t = z_t @ R_l is decoded for storage only. If the
+    initial state cannot be classified (label -1) or its component has no fitted
+    model, the prediction is left as NaN.
 
     Parameters
     ----------
@@ -91,19 +92,17 @@ def switched_koopman_rollout(x0, horizon, models, partition, Phi, *, reclassify=
     horizon : int
         Number of one-step predictions to make.
     models : dict
-        Output of ``fit_switched_edmd_models`` (or loaded equivalent).
+        Output of ``fit_regional_edmd_models`` (or loaded equivalent).
     partition : dict
         Output of ``load_partition_inference``.
     Phi : EDMD dictionary object used to fit ``models``.
-    reclassify : bool
-        If True, re-classify the state at every step. If False, classify only
-        the initial state and reuse that local model for the whole rollout.
 
     Returns
     -------
     traj : ndarray, shape (horizon + 1, n_state)
     step_labels : ndarray, shape (horizon,)
-        Component label used to propagate from each step (-1 after an early stop).
+        Component label used at each step (the initial state's label, or all -1
+        if the initial state is unclassified).
     """
     K_by_label = models["K_by_label"]
     R_by_label = models["R_by_label"]
@@ -120,14 +119,11 @@ def switched_koopman_rollout(x0, horizon, models, partition, Phi, *, reclassify=
         return traj, step_labels
 
     z = np.asarray(Phi.evaluate(x0), dtype=np.float64).ravel()  # lifted state z_0
+    K, R = K_by_label[label], R_by_label[label]
+    step_labels[:] = label
     for t in range(horizon):
-        if reclassify and t > 0:
-            label = int(classify_partition_labels(traj[t], partition)[0])
-            if label < 0 or label not in K_by_label:
-                break
-        step_labels[t] = label
-        z = z @ K_by_label[label]
-        traj[t + 1] = (z @ R_by_label[label]).ravel()
+        z = z @ K
+        traj[t + 1] = (z @ R).ravel()
 
     return traj, step_labels
 
@@ -136,7 +132,7 @@ def fit_vanilla_edmd_model(X, Y, Phi):
     """
     Fit a single global EDMD model on all snapshot pairs (no partition).
 
-    This is the baseline the switched models are compared against:
+    This is the baseline the regional models are compared against:
 
         Phi(Y) approx Phi(X) @ K      (one-step propagation)
         X      approx Phi(X) @ R      (lifted-state -> state reconstruction)
@@ -164,7 +160,7 @@ def vanilla_koopman_rollout(x0, horizon, model, Phi):
     """
     Roll a single initial state forward ``horizon`` steps with one global EDMD model.
 
-    Mirrors ``switched_koopman_rollout``: lift once, z_0 = Phi(x_0), advance in the
+    Mirrors ``regional_koopman_rollout``: lift once, z_0 = Phi(x_0), advance in the
     lifted space, z_{t+1} = z_t @ K, and decode x_t = z_t @ R for storage only, so
     the two rollouts differ only in which operator is applied.
 
