@@ -64,18 +64,6 @@ cd Regional-EDMD
 pip install -r requirements.txt
 ```
 
-Nothing needs to be installed from the repository itself: the scripts and notebooks add the
-project root to `sys.path` so that `src_omega_partition` imports directly. Run everything from
-the repository root, and set `MPLBACKEND=Agg` when there is no display.
-
-> **External modules.** The dynamical-system simulator (`SystemsAutonomous`) and the EDMD
-> dictionary classes (`PolynomialBasis`, `RadialBasis`, `ThinPlateSpline`,
-> `CombinedDictionary`) originate from two separate research codebases and are vendored
-> into [`src_omega_partition/`](src_omega_partition/) (`dynamical_systems.py`,
-> `basis_functions.py`); each file documents the exact interface the rest of the code uses.
-> `duffing_eqn`, `bistable` and the dictionary classes are copied verbatim, and
-> `bistable_oscillations` is defined alongside them, so neither original codebase is needed.
-
 The datasets used in the paper are shipped in `data/<system>/` (`*_data.npz`,
 `*_validation_data.npz`, `*_target_data*.npz`), so the simulator is only needed to regenerate
 them or to draw "true" trajectories from custom initial conditions; every other stage runs
