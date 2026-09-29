@@ -1,6 +1,7 @@
-# Regional-EDMD
+# OPAL-Koopman
 
-Code and experiments for the paper
+**OPAL** (Omega-limit Partitions from Approximate invariants Learned from data): code and
+experiments for the paper
 
 > **Learning Omega-Limit Partitions from Approximate Koopman Invariants**
 
@@ -59,8 +60,8 @@ Python ≥ 3.11 with numpy, scipy, scikit-learn, matplotlib (and pandas / jupyte
 notebooks):
 
 ```bash
-git clone <this repository>
-cd Regional-EDMD
+git clone https://github.com/dhruvshah0208/OPAL-Koopman.git
+cd OPAL-Koopman
 pip install -r requirements.txt
 ```
 

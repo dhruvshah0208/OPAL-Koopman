@@ -1,4 +1,4 @@
-# Regional-EDMD
+# OPAL-Koopman
 
 Code for "Learning Omega-Limit Partitions from Approximate Koopman Invariants"
 (the paper source is not in this repository). See `README.md` for the layout and the
