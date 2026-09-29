@@ -98,7 +98,7 @@ steps produce wide or narrow regions. Dividing by the region length is also why 
 does not separate cells at all (e.g. the constant first mode, $k_1 = 1$) never contributes: its
 interval has no label-changing end, so $d_j = \infty$.
 
-Implementation: `src_omega_partition.partition.compute_relative_boundary_distances` computes
+Implementation: `opal.partition.compute_relative_boundary_distances` computes
 $d(x)$ (and the per-coordinate $d_j$), `apply_robustness_margin` sets the labels below the threshold
 to $-1$, and `predict_graph_merged_labels` calls both whenever `tau_robust > 0`.
 

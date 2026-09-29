@@ -3,7 +3,7 @@
 Every script takes an optional JSON config path. Keys listed in the script's
 ``_DEFAULTS`` override the defaults; an ``"explanation"`` block is documentation
 only and ignored. Relative paths inside configs are resolved against the project
-root by :func:`src_omega_partition.paths.resolve`.
+root by :func:`opal.paths.resolve`.
 """
 
 from __future__ import annotations

@@ -141,7 +141,7 @@ transitions into a single component only.
 ## Reproducing
 
 The sweep script (`sweep_tau_occ.py`) is not part of the repository; it computes the embedding
-once per system, calls `src_omega_partition.partition.fit_graph_merged_partition` for each `tau_occ`
+once per system, calls `opal.partition.fit_graph_merged_partition` for each `tau_occ`
 in `[0, 1e-5, 5e-5, 1e-4, 2e-4, 4e-4, 8e-4, 1e-3, 2e-3, 5e-3, 1e-2, 2e-2, 5e-2, 1e-1]`, and
-scores the result with `src_omega_partition.anchors` on the validation data. It reads only the
+scores the result with `opal.anchors` on the validation data. It reads only the
 committed `data/<system>/*.npz` files and writes nothing into `data/` or `figures/`.

@@ -1,11 +1,11 @@
-"""EDMD dictionary classes used by src_omega_partition.
+"""EDMD dictionary classes used by opal.
 
 Vendored subset of ``src/basis_functions.py`` (MPV-SPV-pruning-code); the four classes
 below are copied verbatim (numpy only), so lifted features match the original bit-for-bit.
 The other bases in that file (Wendland, Legendre, Fourier, inverse multiquadric,
 centered polynomial) and its plotting helper are not used here and were left out.
 
-Used by ``src_omega_partition/dictionary.py``. The rest of the
+Used by ``opal/dictionary.py``. The rest of the
 code touches a dictionary object through exactly two members, ``.evaluate(X)`` and ``.s``.
 
 Interface

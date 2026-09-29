@@ -24,8 +24,8 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root
 
-from src_omega_partition.paths import PAPER_FIGURES_DIR, PROJECT_ROOT, resolve  # noqa: E402
-from src_omega_partition.plotting import finalize_figure  # noqa: E402
+from opal.paths import PAPER_FIGURES_DIR, PROJECT_ROOT, resolve  # noqa: E402
+from opal.plotting import finalize_figure  # noqa: E402
 
 _ROOT = PROJECT_ROOT
 _PAPER_FIGURES = PAPER_FIGURES_DIR

@@ -1,5 +1,5 @@
 # Core dependencies.
-# The simulator and the EDMD dictionary classes are vendored in src_omega_partition/,
+# The simulator and the EDMD dictionary classes are vendored in opal/,
 # so no external research package is needed. See README.md.
 numpy>=2.0
 scipy>=1.13

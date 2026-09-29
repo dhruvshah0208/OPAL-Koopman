@@ -21,8 +21,8 @@ sys.path[:0] = [str(PROJECT_ROOT), str(PROJECT_ROOT / "scripts")]
 import build_partition  # noqa: E402
 import validate_partition  # noqa: E402
 import build_multiple_linear_models as bmlm  # noqa: E402
-from src_omega_partition.anchors import classify_with_anchors  # noqa: E402
-from src_omega_partition.paths import resolve  # noqa: E402
+from opal.anchors import classify_with_anchors  # noqa: E402
+from opal.paths import resolve  # noqa: E402
 
 OUT = DATA_DIR / "ablation_tau_robust_zero.json"
 BEST_EDMD = dict(edmd_gamma=1.0, edmd_d_poly=6, number_centers_edmd=100)   # as in paper_plots.ipynb

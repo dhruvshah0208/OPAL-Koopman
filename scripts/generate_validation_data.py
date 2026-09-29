@@ -35,9 +35,9 @@ DEFAULT_TARGET_EQUILIBRIA = [[-1.0, 0.0], [1.0, 0.0]]
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root
 
-from src_omega_partition.paths import DATA_DIR as _DATA_DIR, PROJECT_ROOT as _ROOT_DIR  # noqa: E402
+from opal.paths import DATA_DIR as _DATA_DIR, PROJECT_ROOT as _ROOT_DIR  # noqa: E402
 
-from src_omega_partition.dynamical_systems import SystemsAutonomous  # noqa: E402
+from opal.dynamical_systems import SystemsAutonomous  # noqa: E402
 
 
 def _apply_dataset_overrides(dataset: dict[str, int], raw: dict[str, Any]) -> None:

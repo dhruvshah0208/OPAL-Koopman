@@ -5,7 +5,7 @@ import time
 import numpy as np
 from sklearn.cluster import KMeans
 
-from src_omega_partition.basis_functions import CombinedDictionary, PolynomialBasis, RadialBasis, ThinPlateSpline
+from opal.basis_functions import CombinedDictionary, PolynomialBasis, RadialBasis, ThinPlateSpline
 
 def select_rbf_centers(X, n_centers, use_kmeans=True, random_state=42, verbose=True):
     """Pick RBF centers via K-means or a random subsample of data points."""

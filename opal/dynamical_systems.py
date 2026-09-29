@@ -1,4 +1,4 @@
-"""Autonomous dynamical systems used by src_omega_partition.
+"""Autonomous dynamical systems used by opal.
 
 "duffing_eqn" and "bistable" are copied verbatim from ``src_deep_koopman/dynamical_systems.py``
 (Benchmarking_Deep_Koopman), so their stored datasets regenerate bit-for-bit.

@@ -42,7 +42,7 @@ bistable toy used for sanity checks.
 ## Repository layout
 
 ```
-src_omega_partition/    library: invariants, partition (Algorithm 1), regional EDMD models,
+opal/                   library: invariants, partition (Algorithm 1), regional EDMD models,
                         anchor-based labels, plotting, plus the vendored simulator
                         (dynamical_systems.py) and dictionary classes (basis_functions.py)
 scripts/                one script per pipeline stage; each takes a single JSON config
@@ -72,7 +72,7 @@ from the stored files.
 
 ## Start here: the notebooks
 
-The notebooks are the primary record of the experiments. They use the `src_omega_partition`
+The notebooks are the primary record of the experiments. They use the `opal`
 library and the pipeline scripts' functions directly, read only the committed datasets, and
 write nothing to `data/` (except `paper_plots.ipynb`, which caches its arrays in
 `data/paper_plots/`). Run them from the repository root, e.g.
@@ -185,7 +185,7 @@ cells are forward invariant, so only the initial condition is classified.
   on the training set.
 - **Class labels** for validation come from anchors: the equilibrium (`target_equilibria`)
   or reference trajectory (`target_data_paths`) closest to a trajectory's final state.
-- **`bistable_oscillations`** is simulated in `src_omega_partition/dynamical_systems.py`
+- **`bistable_oscillations`** is simulated in `opal/dynamical_systems.py`
   by the closed-form flow map of `r' = (r−2) − (r−2)³, θ' = 1` with `dt = 0.05`, which
   reproduces the stored datasets to ~1e-7 (an Euler step would drift by ~0.7).
 - **RBF convention** is `exp(-gamma ‖x − c‖²)` (gamma is a precision); larger `gamma` means

@@ -3,7 +3,7 @@
 All numbers and figures come from `notebooks/paper_plots.ipynb`, which runs the pipeline functions
 (`scripts/build_partition.py`, `scripts/validate_partition.py`, `scripts/build_multiple_linear_models.py`)
 with the configs in `configs/<system>/` and caches every array in `data/paper_plots/<system>/*.npz`
-(cache last written 2026-09-23 15:46). The figures in `plotting/` and the
+(cache last written 2026-09-23 16:37). The figures in `plotting/` and the
 tables below are regenerated from that cache by `plotting/plot_all.py` and `plotting/make_results_table.py`.
 
 ## 1. Systems and data

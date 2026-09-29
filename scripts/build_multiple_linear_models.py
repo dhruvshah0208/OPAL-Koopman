@@ -36,29 +36,29 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root
 
-from src_omega_partition.anchors import (  # noqa: E402
+from opal.anchors import (  # noqa: E402
     apply_anchor_config,
     classify_with_anchors,
     print_anchor_assignments,
     print_classification_table,
 )
-from src_omega_partition.config import config_path_from_argv, load_json_config  # noqa: E402
-from src_omega_partition.dictionary import build_rbf_polynomial_dictionary, sample_edmd_centers  # noqa: E402
-from src_omega_partition.partition import classify_partition_labels, load_partition_inference  # noqa: E402
-from src_omega_partition.paths import PROJECT_ROOT, resolve  # noqa: E402
-from src_omega_partition.plotting import (  # noqa: E402
+from opal.config import config_path_from_argv, load_json_config  # noqa: E402
+from opal.dictionary import build_rbf_polynomial_dictionary, sample_edmd_centers  # noqa: E402
+from opal.partition import classify_partition_labels, load_partition_inference  # noqa: E402
+from opal.paths import PROJECT_ROOT, resolve  # noqa: E402
+from opal.plotting import (  # noqa: E402
     finalize_figure,
     plot_rollout_phase_portrait,
     plot_state_partition_1d,
     plot_state_partition_2d,
 )
-from src_omega_partition.regional_models import (  # noqa: E402
+from opal.regional_models import (  # noqa: E402
     fit_regional_edmd_models,
     fit_vanilla_edmd_model,
     regional_koopman_rollout,
     vanilla_koopman_rollout,
 )
-from src_omega_partition.tables import print_table  # noqa: E402
+from opal.tables import print_table  # noqa: E402
 
 _ROOT = PROJECT_ROOT
 DEFAULT_CONFIG_PATH = _ROOT / "configs/duffing/build_multiple_linear_models.json"
@@ -967,7 +967,7 @@ def _simulate_true_trajectories(
     x0 = np.asarray(initial_conditions, dtype=np.float64)
     if x0.ndim == 1:
         x0 = x0.reshape(1, -1)
-    from src_omega_partition.dynamical_systems import SystemsAutonomous
+    from opal.dynamical_systems import SystemsAutonomous
 
     system = SystemsAutonomous(system_name)
     return system.simulate_trajectory_true(x0=x0, time_horizon=n_steps)

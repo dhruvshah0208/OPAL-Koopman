@@ -17,20 +17,20 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))  # project root
 
-from src_omega_partition.config import config_path_from_argv, load_json_config  # noqa: E402
-from src_omega_partition.dictionary import build_rbf_polynomial_dictionary  # noqa: E402
-from src_omega_partition.invariants import (  # noqa: E402
+from opal.config import config_path_from_argv, load_json_config  # noqa: E402
+from opal.dictionary import build_rbf_polynomial_dictionary  # noqa: E402
+from opal.invariants import (  # noqa: E402
     compute_approximate_invariant_observables,
     evaluate_invariant_embedding,
     select_invariant_modes,
 )
-from src_omega_partition.partition import (  # noqa: E402
+from opal.partition import (  # noqa: E402
     _stack_cluster_centers,
     build_partition_inference,
     fit_graph_merged_partition,
 )
-from src_omega_partition.paths import PROJECT_ROOT, resolve  # noqa: E402
-from src_omega_partition.plotting import (  # noqa: E402
+from opal.paths import PROJECT_ROOT, resolve  # noqa: E402
+from opal.plotting import (  # noqa: E402
     plot_cell_weights,
     plot_inter_centroid_distances,
     plot_invariant_embedding_2d,

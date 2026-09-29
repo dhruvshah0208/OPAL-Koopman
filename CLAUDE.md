@@ -13,7 +13,7 @@ conda activate macbook_env
 ```
 
 (Python 3.11.4, numpy 2.2, scipy 1.13, scikit-learn 1.7.) Both external research
-modules are vendored directly in `src_omega_partition/`: the simulator `SystemsAutonomous`
+modules are vendored directly in `opal/`: the simulator `SystemsAutonomous`
 (`dynamical_systems.py`: `duffing_eqn` and `bistable` copied verbatim from
 `src_deep_koopman`, plus `bistable_oscillations`) and the EDMD dictionary classes (`basis_functions.py`, four classes
 copied verbatim from `src/basis_functions.py` of `../MPV-SPV-pruning-code`). Import them
@@ -22,9 +22,9 @@ from there, not from `src` / `src_deep_koopman`. Use `MPLBACKEND=Agg` when runni
 ## Conventions
 
 - Scripts live in `scripts/` and bootstrap `sys.path` with the project root so that
-  `src_omega_partition` imports without installation. Each script takes one JSON config;
-  relative paths in configs resolve against the project root (`src_omega_partition.paths.resolve`).
-- Library code goes in `src_omega_partition/`; scripts should only orchestrate, print, and save.
+  `opal` imports without installation. Each script takes one JSON config;
+  relative paths in configs resolve against the project root (`opal.paths.resolve`).
+- Library code goes in `opal/`; scripts should only orchestrate, print, and save.
 - Do not write pipeline outputs into `data/` or `figures/` when experimenting — point the
   config's output paths elsewhere; the tracked `.meta.json` files describe how the
   datasets were generated.
