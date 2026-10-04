@@ -198,14 +198,7 @@ cells are forward invariant, so only the initial condition is classified.
 
 If you use this code, please cite the paper:
 
-```bibtex
-@inproceedings{shah2027omegalimit,
-  title     = {Learning Omega-Limit Partitions from Approximate Koopman Invariants},
-  author    = {Shah, Dhruv and TODO},
-  booktitle = {TODO},
-  year      = {2027}
-}
-```
+//Coming soon...
 
 ## License
 
