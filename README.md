@@ -3,7 +3,7 @@
 **OPAL** (Omega-limit Partitions from Approximate invariants Learned from data): code and
 experiments for the paper
 
-> **Learning Omega-Limit Partitions from Approximate Koopman Invariants**
+> **[Learning the Omega-Limit Partition from Approximate Koopman Invariants](https://arxiv.org/abs/2610.40977)**
 
 Given snapshot pairs `(x_t, x_{t+1})` of a nonlinear system with several attractors, the
 method
@@ -198,7 +198,17 @@ cells are forward invariant, so only the initial condition is classified.
 
 If you use this code, please cite the paper:
 
-//Coming soon...
+```bibtex
+@misc{shah2026-OPAL,
+      title={Learning the Omega-Limit Partition from Approximate Koopman Invariants},
+      author={Dhruv Shah and Jorge Cortés},
+      year={2026},
+      eprint={2610.40977},
+      archivePrefix={arXiv},
+      primaryClass={eess.SY},
+      url={https://arxiv.org/abs/2610.40977},
+}
+```
 
 ## License
 
